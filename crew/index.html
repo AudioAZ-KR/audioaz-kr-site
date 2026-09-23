@@ -164,45 +164,32 @@ footer a{text-decoration:underline;text-underline-offset:3px}
   <!-- 로그인·가입 -->
   <section id="vAuth" class="auth hide">
     <div class="h">오디오에이지 감독 전용</div>
-    <p class="sub">오디오에이지와 함께하는 프리랜서 감독님들이 프로젝트 일정을 보고 참여 신청을 남기는 곳입니다. 가입은 오디오에이지가 보낸 <b>초대 코드</b>가 있어야 합니다. 아이폰은 App Store 의 <b>AudioAZ Crew</b> 앱으로도 쓸 수 있습니다.</p>
+    <p class="sub">오디오에이지와 함께하는 프리랜서 감독님들이 프로젝트 일정을 보고 참여 신청을 남기는 곳입니다. 가입은 오디오에이지가 보낸 <b>초대 코드</b>가 있어야 하고, 로그인은 <b>패스키</b>(지문·Face ID)로 합니다.</p>
     <div class="tabs" id="authTabs">
       <button type="button" class="on" data-a="login">로그인</button>
       <button type="button" data-a="signup">초대 코드로 가입</button>
-      <button type="button" data-a="forgot">비밀번호 찾기</button>
     </div>
     <div class="box">
-      <form id="fLogin" onsubmit="doLogin(event)">
-        <div class="field"><label>이메일</label><input type="email" id="lEmail" autocomplete="email" required></div>
-        <div class="field"><label>비밀번호</label><input type="password" id="lPw" autocomplete="current-password" required></div>
-        <button class="btn pri full" type="submit">로그인</button>
-        <p class="meta" style="margin-top:12px">audioazpro.com 계정이 있으면 같은 이메일·비밀번호로 들어올 수 있습니다.</p>
-      </form>
+      <div id="fLogin">
+        <button class="btn pri full" type="button" onclick="goPasskey()">패스키로 로그인</button>
+        <p class="meta" style="margin-top:10px">지문·Face ID 로 바로 들어옵니다. 비밀번호는 쓰지 않습니다.</p>
+        <div class="sec" style="margin-top:22px">패스키가 없는 기기라면</div>
+        <form onsubmit="doMagic(event)">
+          <div class="field"><label>가입한 이메일</label><input type="email" id="lEmail" autocomplete="email" required></div>
+          <button class="btn out full" type="submit">이메일로 로그인 링크 받기</button>
+        </form>
+        <p class="meta" style="margin-top:10px">메일의 링크를 누르면 로그인되고, 이 기기에 패스키를 등록할 수 있습니다.</p>
+        <p class="meta" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">AudioAZ 통합 회원입니다. audioazpro.com 계정이 있으면 같은 계정으로 로그인한 뒤 초대 코드만 입력하면 됩니다.</p>
+      </div>
       <form id="fSignup" class="hide" onsubmit="doSignup(event)">
         <div class="field"><label>초대 코드 (8자리)</label><input id="sCode" required maxlength="8" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="예: AZ7K2M9Q"></div>
         <div class="field"><label>이름</label><input id="sName" autocomplete="name" required maxlength="40"></div>
         <div class="field"><label>연락처</label><input id="sPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000"></div>
         <div class="field"><label>이메일</label><input type="email" id="sEmail" autocomplete="email" required></div>
-        <div class="field"><label>비밀번호</label><input type="password" id="sPw" autocomplete="new-password" required minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"><div class="hint">영문과 숫자를 섞어 8자 이상</div></div>
-        <button class="btn pri full" type="submit">가입하고 인증 메일 받기</button>
-        <p class="meta" style="margin-top:12px">메일의 인증 버튼을 누르면 이 페이지로 돌아와 바로 크루로 합류합니다.</p>
-      </form>
-      <form id="fForgot" class="hide" onsubmit="doForgot(event)">
-        <div class="field"><label>가입한 이메일</label><input type="email" id="fEmail" autocomplete="email" required></div>
-        <button class="btn pri full" type="submit">재설정 메일 받기</button>
+        <button class="btn pri full" type="submit">가입 메일 받기</button>
+        <p class="meta" style="margin-top:12px">메일의 링크를 누르면 이 페이지로 돌아와 바로 크루로 합류하고, 패스키를 등록합니다. 비밀번호는 만들지 않습니다.</p>
       </form>
       <div class="msg" id="authMsg"></div>
-    </div>
-  </section>
-
-  <!-- 비밀번호 재설정 -->
-  <section id="vReset" class="auth hide">
-    <div class="h">새 비밀번호</div>
-    <div class="box" style="margin-top:18px">
-      <form onsubmit="doReset(event)">
-        <div class="field"><label>새 비밀번호</label><input type="password" id="rPw" autocomplete="new-password" required minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"><div class="hint">영문과 숫자를 섞어 8자 이상</div></div>
-        <button class="btn pri full" type="submit">변경</button>
-      </form>
-      <div class="msg" id="resetMsg"></div>
     </div>
   </section>
 
@@ -230,6 +217,10 @@ footer a{text-decoration:underline;text-underline-offset:3px}
 
   <!-- 본 화면 -->
   <section id="vApp" class="hide">
+    <div id="pkBanner" class="notice hide" style="border-left-color:var(--blue);margin-bottom:0">
+      <div style="flex:1"><b>이 기기에 패스키를 등록하세요</b><p>다음부터 메일 없이 지문·Face ID 로 바로 로그인합니다. 아이폰·맥은 iCloud 로 함께 옮겨 갑니다.</p>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn pri sm" type="button" onclick="goEnroll()">패스키 등록</button><button class="btn out sm" type="button" onclick="pkLater()">나중에</button></div></div>
+    </div>
     <div class="tabs" id="appTabs">
       <button type="button" class="on" data-t="projects">모집 중 프로젝트<span class="c" id="cOpen"></span></button>
       <button type="button" data-t="mine">내 일정<span class="c" id="cMine"></span></button>
@@ -278,6 +269,8 @@ footer a{text-decoration:underline;text-underline-offset:3px}
         <div class="field"><label>예금주</label><input id="pHolder" maxlength="30"></div>
       </div>
       <p class="meta" style="margin:-4px 0 16px">개인은 주민등록번호를 여기서 받지 않습니다. 원천징수 신고에 필요하면 오디오에이지가 따로 연락드립니다.</p>
+      <div class="sec">알림</div>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="pNotify" style="margin-top:4px"> <span>새 프로젝트 모집·참여 확정 소식을 메일로 받기<br><span class="meta">가입한 이메일로 보냅니다</span></span></label>
       <button class="btn pri" type="submit" id="profBtn">저장</button>
       <div class="msg" id="profMsg"></div>
     </form>
@@ -335,13 +328,36 @@ function errText(e){
 $('authTabs').addEventListener('click', function(ev){
   var b=ev.target.closest('button[data-a]'); if(!b) return;
   this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x===b); });
-  show('fLogin', b.dataset.a==='login'); show('fSignup', b.dataset.a==='signup'); show('fForgot', b.dataset.a==='forgot'); clearMsg('authMsg');
+  show('fLogin', b.dataset.a==='login'); show('fSignup', b.dataset.a==='signup'); clearMsg('authMsg');
 });
-async function doLogin(ev){
+/* 패스키는 audioazpro.com 의 중계 페이지에서 한다(Supabase 패스키 RP ID = audioazpro.com, 관리자 콘솔과 공유).
+ * 끝나면 새 세션 토큰을 #pk_at·pk_rt 로 붙여 이 페이지로 돌아온다 → boot() 가 받아서 바로 주소에서 지운다. */
+var PK = 'https://audioazpro.com/portal/crew-passkey.html';
+function goPasskey(){ location.href = PK + '#login'; }
+async function goEnroll(){
+  var s=(await sb.auth.getSession()).data.session;
+  if (!s) return boot();
+  location.href = PK + '#enroll&t=' + encodeURIComponent(s.access_token) + '&r=' + encodeURIComponent(s.refresh_token);
+}
+function pkLater(){ try{ localStorage.setItem('az_crew_pk_later', String(Date.now())); }catch(_){} show('pkBanner', false); }
+function amrOf(s){ try{ return JSON.parse(atob(s.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).amr||[]; }catch(_){ return []; } }
+async function pkBanner(){
+  var s=(await sb.auth.getSession()).data.session, later=0;
+  try{ later=+localStorage.getItem('az_crew_pk_later')||0; }catch(_){}
+  var viaPk = s && amrOf(s).some(function(m){ return /passkey|webauthn/i.test(m.method||''); });
+  var enrolled = false; try{ enrolled = localStorage.getItem('az_crew_pk_done')==='1'; }catch(_){}
+  if (viaPk){ try{ localStorage.setItem('az_crew_pk_done','1'); }catch(_){} }
+  show('pkBanner', !!s && !viaPk && !enrolled && (Date.now()-later > 7*864e5) && !!window.PublicKeyCredential);
+}
+async function doMagic(ev){
   ev.preventDefault(); clearMsg('authMsg');
-  var r=await sb.auth.signInWithPassword({ email:$('lEmail').value.trim(), password:$('lPw').value });
-  if (r.error) return msg('authMsg', errText(r.error));
-  await boot();
+  var email=$('lEmail').value.trim();
+  var r=await sb.auth.signInWithOtp({ email:email, options:{ shouldCreateUser:false, emailRedirectTo:HERE } });
+  if (r.error){
+    if (/signups? not allowed|not found|otp_disabled/i.test(r.error.message)) return msg('authMsg', '가입되지 않은 이메일입니다. [초대 코드로 가입]에서 먼저 가입해 주세요.');
+    return msg('authMsg', errText(r.error));
+  }
+  msg('authMsg', email+' 로 로그인 링크를 보냈습니다. 메일의 링크를 누르면 이 페이지로 돌아옵니다. 안 보이면 스팸함도 확인해 주세요.', true);
 }
 async function doSignup(ev){
   ev.preventDefault(); clearMsg('authMsg');
@@ -350,36 +366,17 @@ async function doSignup(ev){
   if (ck.error) return msg('authMsg', errText(ck.error));
   if (ck.data!==true) return msg('authMsg', '초대 코드가 맞지 않거나 이미 사용·만료됐습니다. 오디오에이지에 새 코드를 요청해 주세요.');
   setPending({ code:code, name:name, phone:$('sPhone').value.trim() });
-  var r=await sb.auth.signUp({ email:email, password:$('sPw').value, options:{ emailRedirectTo:HERE, data:{ name:name, source:'crew' } } });
+  var r=await sb.auth.signInWithOtp({ email:email, options:{ shouldCreateUser:true, emailRedirectTo:HERE, data:{ name:name, source:'crew' } } });
   if (r.error) return msg('authMsg', errText(r.error));
-  if (r.data && r.data.user && r.data.user.identities && r.data.user.identities.length===0)
-    return msg('authMsg', '이미 AudioAZ 계정이 있는 이메일입니다(audioazpro.com 계정 포함). 로그인 탭에서 그 비밀번호로 들어오면 입력한 초대 코드로 바로 합류됩니다.');
-  if (r.data && r.data.session) return boot();
-  msg('authMsg', email+' 로 인증 메일을 보냈습니다. 메일의 버튼을 누르면 이 페이지로 돌아와 바로 합류됩니다(앱에서 가입했다면 앱에서 로그인). 메일이 안 보이면 스팸함도 확인해 주세요.', true);
-}
-async function doForgot(ev){
-  ev.preventDefault(); clearMsg('authMsg');
-  var r=await sb.auth.resetPasswordForEmail($('fEmail').value.trim(), { redirectTo:HERE+'?reset=1' });
-  if (r.error) return msg('authMsg', errText(r.error));
-  msg('authMsg', '재설정 메일을 보냈습니다. 메일의 링크를 누르면 새 비밀번호를 정할 수 있습니다.', true);
-}
-async function doReset(ev){
-  ev.preventDefault(); clearMsg('resetMsg');
-  var r=await sb.auth.updateUser({ password:$('rPw').value });
-  if (r.error) return msg('resetMsg', errText(r.error));
-  RECOVERY=false; toast('비밀번호를 바꿨습니다.'); history.replaceState(null,'',HERE); await boot();
+  msg('authMsg', email+' 로 가입 메일을 보냈습니다. 메일의 링크를 이 기기에서 누르면 바로 합류합니다. 안 보이면 스팸함도 확인해 주세요.', true);
 }
 async function logout(){ await sb.auth.signOut({ scope:'local' }); location.href=HERE; }
 
-var RECOVERY=false;
-sb.auth.onAuthStateChange(function(evt){ if (evt==='PASSWORD_RECOVERY'){ RECOVERY=true; views('reset'); } });
-
 function views(v){
-  ['vLoad','vAuth','vReset','vPending','vInactive','vApp','vProfile','profIntro','vJoin'].forEach(function(id){ show(id,false); });
-  show('me', !!S.user && v!=='auth' && v!=='reset');
+  ['vLoad','vAuth','vPending','vInactive','vApp','vProfile','profIntro','vJoin'].forEach(function(id){ show(id,false); });
+  show('me', !!S.user && v!=='auth');
   if (v==='load') show('vLoad',true);
   else if (v==='auth') show('vAuth',true);
-  else if (v==='reset') show('vReset',true);
   else if (v==='join'){ show('vJoin',true); $('jName').value=$('jName').value||((S.user&&S.user.user_metadata&&S.user.user_metadata.name)||''); $('jWho').textContent=(S.user&&S.user.email)||''; }
   else if (v==='pending'){ show('vPending',true); show('vProfile',true); }
   else if (v==='inactive'){ show('vInactive',true); }
@@ -389,10 +386,15 @@ function views(v){
 /* 서버에서 세션을 검증한 뒤에만 화면을 고른다 (낡은 세션 왕복 방지 — 포털과 같은 규칙) */
 async function boot(){
   views('load');
+  var hp=new URLSearchParams((location.hash||'').replace(/^#/,''));
+  if (hp.get('pk_at') && hp.get('pk_rt')){
+    history.replaceState(null,'',HERE);                     // 토큰을 주소창·방문 기록에서 즉시 지운다
+    var sr=await sb.auth.setSession({ access_token:hp.get('pk_at'), refresh_token:hp.get('pk_rt') });
+    if (sr.error){ views('auth'); return msg('authMsg', '패스키 로그인 세션을 받지 못했습니다. 다시 시도해 주세요.'); }
+  }
   var u=await sb.auth.getUser();
   if (u.error || !u.data || !u.data.user){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){} S.user=null; return views('auth'); }
   S.user=u.data.user;
-  if (RECOVERY || /[?&]reset=1/.test(location.search)) return views('reset');
   var r=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle();
   if (r.error){ views('auth'); return msg('authMsg', errText(r.error)); }
   S.member=r.data;
@@ -412,6 +414,7 @@ async function boot(){
   if (S.member.status==='inactive') return views('inactive');
   await loadData();
   views('app');
+  pkBanner();
 }
 
 /* ── 초대 코드 합류 ─────────────────────────────────── */
@@ -430,6 +433,7 @@ function fillProfile(){
   $('pName').value=m.name||meta.name||ln||''; $('pPhone').value=m.phone||''; $('pSpec').value=m.specialty||''; $('pCareer').value=m.career||'';
   document.querySelectorAll('input[name=pBiz]').forEach(function(x){ x.checked = (x.value==='1') === !!m.is_business; });
   $('pBizName').value=m.biz_name||''; $('pBizNo').value=m.biz_no||'';
+  $('pNotify').checked = m.notify_email!==false;
   $('pBank').value=m.bank_name||''; $('pAcct').value=m.bank_account||''; $('pHolder').value=m.bank_holder||'';
   $('profBtn').textContent = S.member ? '저장' : '등록하고 승인 요청';
   bizToggle();
@@ -440,7 +444,7 @@ async function saveProfile(ev){
   var biz=document.querySelector('input[name=pBiz]:checked').value==='1';
   var row={ name:$('pName').value.trim(), phone:$('pPhone').value.trim(), specialty:$('pSpec').value.trim()||null, career:$('pCareer').value.trim()||null,
             is_business:biz, biz_name:biz?($('pBizName').value.trim()||null):null, biz_no:biz?($('pBizNo').value.trim()||null):null,
-            bank_name:$('pBank').value.trim()||null, bank_account:$('pAcct').value.trim()||null, bank_holder:$('pHolder').value.trim()||null };
+            bank_name:$('pBank').value.trim()||null, bank_account:$('pAcct').value.trim()||null, bank_holder:$('pHolder').value.trim()||null, notify_email:$('pNotify').checked };
   if (biz && row.biz_no && !/^\d{3}-?\d{2}-?\d{5}$/.test(row.biz_no)) return msg('profMsg','사업자등록번호는 숫자 10자리입니다 (000-00-00000).');
   if (!S.member) return views('join');
   var r=await sb.from('crew_members').update(row).eq('user_id', S.user.id);
@@ -483,6 +487,7 @@ function renderProjects(){
     var btn='';
     if (open && (!a || a.status==='cancelled')) btn='<button class="btn pri sm" onclick="toggleApply(\''+p.id+'\')">'+(a?'다시 참여하기':'참여하기')+'</button>';
     else if (open && a && a.status==='applied') btn='<button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>';
+    else if (a && a.status==='confirmed') btn='<button class="btn out sm" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>';
     return '<article class="proj'+(a&&a.status!=='cancelled'?' mine':'')+'" id="pj-'+p.id+'">'
       +'<div class="d"><div class="m">'+s.getFullYear()+'.'+String(s.getMonth()+1).padStart(2,'0')+'</div><div class="n">'+String(s.getDate()).padStart(2,'0')+'</div><div class="w">'+WD[s.getDay()]+'요일</div>'+(n>1?'<div class="e">'+n+'일간</div>':'')+'</div>'
       +'<div class="b"><div class="t"><h3>'+esc(p.title)+'</h3>'+state+'</div>'
@@ -518,6 +523,22 @@ async function cancelApp(id){
   toast('신청을 취소했습니다.'); await loadData(); setTab(S.tab);
 }
 
+/* ── 캘린더 파일(.ics) — 아이폰·구글·아웃룩 캘린더에 추가 ── */
+function icsDate(d){ return d.replace(/-/g,''); }
+function nextDay(d){ var x=pd(d); x.setDate(x.getDate()+1); return x.getFullYear()+String(x.getMonth()+1).padStart(2,'0')+String(x.getDate()).padStart(2,'0'); }
+function icsEsc(t){ return String(t||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function addCal(id){
+  var p=null; S.projects.forEach(function(x){ if(x.id===id) p=x; }); if(!p) return;
+  var a=S.apps[id]||{}, note=[p.call_time?'콜타임: '+p.call_time:'', a.role?'포지션: '+a.role:'', p.description||''].filter(Boolean).join('\n');
+  var now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
+  var ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AudioAZ//Crew//KO','CALSCALE:GREGORIAN','BEGIN:VEVENT',
+    'UID:crew-'+p.id+'@audioaz.co.kr','DTSTAMP:'+now,'DTSTART;VALUE=DATE:'+icsDate(p.date_start),'DTEND;VALUE=DATE:'+nextDay(p.date_end||p.date_start),
+    'SUMMARY:'+icsEsc('[AudioAZ] '+p.title), p.venue?'LOCATION:'+icsEsc(p.venue):'', note?'DESCRIPTION:'+icsEsc(note):'', 'URL:'+HERE, 'END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
+  var url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
+  var el=document.createElement('a'); el.href=url; el.download='audioaz-'+p.date_start+'.ics'; document.body.appendChild(el); el.click(); el.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+
 /* ── 내 일정 ────────────────────────────────────────── */
 function myItems(){
   return S.projects.filter(function(p){ return S.apps[p.id]; }).map(function(p){ return { p:p, a:S.apps[p.id] }; });
@@ -535,7 +556,7 @@ function renderMine(){
     return arr.map(function(x){ var p=x.p, a=x.a, st=APP[a.status], canC = cancel && a.status==='applied' && p.status==='open';
       return '<tr><td class="dt">'+esc(dLabel(p))+'</td><td><b>'+esc(p.title)+'</b>'+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
         +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
-        +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+'</td></tr>'; }).join('');
+        +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+(a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+'</td></tr>'; }).join('');
   }
   var head='<table class="tbl"><thead><tr><th>DATE</th><th>PROJECT</th><th>CALL</th><th>POSITION</th><th>STATUS</th><th></th></tr></thead><tbody>';
   var h='';
