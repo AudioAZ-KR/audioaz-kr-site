@@ -340,11 +340,13 @@ $('authTabs').addEventListener('click', function(ev){
 /* 패스키는 audioazpro.com 의 중계 페이지에서 한다(Supabase 패스키 RP ID = audioazpro.com, 관리자 콘솔과 공유).
  * 끝나면 새 세션 토큰을 #pk_at·pk_rt 로 붙여 이 페이지로 돌아온다 → boot() 가 받아서 바로 주소에서 지운다. */
 var PK = 'https://audioazpro.com/portal/crew-passkey.html';
-function goPasskey(){ location.href = PK + '#login'; }
+/* 1회용 값: 이 탭에서 보낸 요청의 답만 받는다(남이 만든 #pk_at 링크로 남의 계정에 로그인되는 것 방지) */
+function newNonce(){ var a=new Uint8Array(16); crypto.getRandomValues(a); var n=Array.from(a,function(b){return ('0'+b.toString(16)).slice(-2);}).join(''); try{ sessionStorage.setItem('az_pk_nonce', n); }catch(_){} return n; }
+function goPasskey(){ location.href = PK + '#login&n=' + newNonce(); }
 async function goEnroll(){
   var s=(await sb.auth.getSession()).data.session;
   if (!s) return boot();
-  location.href = PK + '#enroll&t=' + encodeURIComponent(s.access_token) + '&r=' + encodeURIComponent(s.refresh_token);
+  location.href = PK + '#enroll&n=' + newNonce() + '&t=' + encodeURIComponent(s.access_token) + '&r=' + encodeURIComponent(s.refresh_token);
 }
 function pkLater(){ try{ localStorage.setItem('az_crew_pk_later', String(Date.now())); }catch(_){} show('pkBanner', false); }
 function amrOf(s){ try{ return JSON.parse(atob(s.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).amr||[]; }catch(_){ return []; } }
@@ -396,8 +398,12 @@ async function boot(){
   var hp=new URLSearchParams((location.hash||'').replace(/^#/,''));
   if (hp.get('pk_at') && hp.get('pk_rt')){
     history.replaceState(null,'',HERE);                     // 토큰을 주소창·방문 기록에서 즉시 지운다
-    var sr=await sb.auth.setSession({ access_token:hp.get('pk_at'), refresh_token:hp.get('pk_rt') });
-    if (sr.error){ views('auth'); return msg('authMsg', '패스키 로그인 세션을 받지 못했습니다. 다시 시도해 주세요.'); }
+    var want=''; try{ want=sessionStorage.getItem('az_pk_nonce')||''; sessionStorage.removeItem('az_pk_nonce'); }catch(_){}
+    if (!want || hp.get('n')!==want){ toast('확인할 수 없는 로그인 요청이라 무시했습니다. [패스키로 로그인]을 이 페이지에서 다시 눌러 주세요.'); }
+    else {
+      var sr=await sb.auth.setSession({ access_token:hp.get('pk_at'), refresh_token:hp.get('pk_rt') });
+      if (sr.error){ views('auth'); return msg('authMsg', '패스키 로그인 세션을 받지 못했습니다. 다시 시도해 주세요.'); }
+    }
   }
   var u=await sb.auth.getUser();
   if (u.error || !u.data || !u.data.user){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){} S.user=null; return views('auth'); }
