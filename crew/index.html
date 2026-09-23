@@ -203,13 +203,20 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       <div class="field"><label>연락처</label><input id="jPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="010-0000-0000"></div>
       <button class="btn pri full" type="submit">합류하기</button>
       <div class="msg" id="joinMsg"></div>
+    </form>
+    <form class="box" style="margin-top:14px" onsubmit="doRequest(event)">
+      <div class="sec" style="margin-top:0">초대 코드가 없다면</div>
+      <p class="sub" style="margin:0 0 14px">AudioAZ 회원이면 참여를 요청할 수 있습니다. 오디오에이지가 확인해 승인하면 메일로 알려 드립니다. 위의 이름·연락처가 함께 전달됩니다.</p>
+      <div class="field"><label>하고 싶은 말 (선택)</label><textarea id="rNote" rows="2" maxlength="500" placeholder="주 분야, 함께했던 현장 등"></textarea></div>
+      <button class="btn out full" type="submit">참여 요청 보내기</button>
+      <div class="msg" id="reqMsg"></div>
       <p class="meta" style="margin-top:12px"><button type="button" class="lnk" onclick="logout()">다른 계정으로 로그인</button></p>
     </form>
   </section>
 
   <!-- 승인 대기 -->
   <div id="vPending" class="notice hide">
-    <div><b>승인 대기 중입니다</b><p>프로필이 접수됐습니다. 오디오에이지에서 확인 후 승인하면 프로젝트 목록이 열립니다. 아래에서 정보를 계속 고칠 수 있습니다.</p></div>
+    <div><b>참여 요청을 확인하고 있습니다</b><p>오디오에이지가 승인하면 메일로 알려 드리고, 이 페이지에서 프로젝트 목록이 열립니다. 그동안 아래 정보를 채워 두면 섭외에 도움이 됩니다.</p></div>
   </div>
   <div id="vInactive" class="notice hide">
     <div><b>현재 비활성 상태입니다</b><p>프로젝트 목록을 볼 수 없습니다. 문의는 오디오에이지로 연락 주세요.</p></div>
@@ -420,6 +427,14 @@ async function boot(){
 /* ── 초대 코드 합류 ─────────────────────────────────── */
 function setPending(o){ try{ if(o) localStorage.setItem('az_crew_pending', JSON.stringify(o)); else localStorage.removeItem('az_crew_pending'); }catch(_){} }
 function getPending(){ try{ return JSON.parse(localStorage.getItem('az_crew_pending')||'null'); }catch(_){ return null; } }
+async function doRequest(ev){
+  ev.preventDefault(); clearMsg('reqMsg');
+  var name=$('jName').value.trim();
+  if (!name){ $('jName').focus(); return msg('reqMsg','위에 이름을 입력해 주세요.'); }
+  var r=await sb.rpc('crew_request_access', { p_name:name, p_phone:$('jPhone').value.trim(), p_note:$('rNote').value.trim() });
+  if (r.error) return msg('reqMsg', errText(r.error));
+  toast('참여 요청을 보냈습니다. 승인되면 메일로 알려 드립니다.'); await boot();
+}
 async function doJoin(ev){
   ev.preventDefault(); clearMsg('joinMsg');
   var r=await sb.rpc('crew_join', { p_code:$('jCode').value.trim().toUpperCase(), p_name:$('jName').value.trim(), p_phone:$('jPhone').value.trim() });
