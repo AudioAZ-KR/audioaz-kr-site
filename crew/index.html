@@ -219,7 +219,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
         <p class="meta" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">AudioAZ 통합 회원입니다. audioazpro.com 계정이 있으면 같은 계정으로 로그인한 뒤 초대 코드만 입력하면 됩니다.</p>
       </div>
       <form id="fSignup" class="hide" onsubmit="doSignup(event)">
-        <div class="field"><label>초대 코드</label><input id="sCode" required minlength="6" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
+        <div class="field"><label>초대 코드</label><input id="sCode" required minlength="1" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
         <div class="field"><label>이름</label><input id="sName" autocomplete="name" required maxlength="40"></div>
         <div class="field"><label>연락처</label><input id="sPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000"></div>
         <div class="field"><label>이메일</label><input type="email" id="sEmail" autocomplete="email" required></div>
@@ -235,7 +235,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     <div class="h">초대 코드 입력</div>
     <p class="sub"><span id="jWho"></span> 계정으로 로그인했습니다. 오디오에이지에서 받은 초대 코드를 입력하면 크루로 합류합니다.</p>
     <form class="box" style="margin-top:18px" onsubmit="doJoin(event)">
-      <div class="field"><label>초대 코드</label><input id="jCode" required minlength="6" maxlength="32" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase"></div>
+      <div class="field"><label>초대 코드</label><input id="jCode" required minlength="1" maxlength="32" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase"></div>
       <div class="field"><label>이름</label><input id="jName" required maxlength="40" autocomplete="name"></div>
       <div class="field"><label>연락처</label><input id="jPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="010-0000-0000"></div>
       <button class="btn pri full" type="submit">합류하기</button>
@@ -369,6 +369,7 @@ function errText(e){
   if (/Password should|weak/i.test(m)) return '비밀번호가 너무 약합니다. 영문과 숫자를 섞어 8자 이상으로 해 주세요.';
   if (/row-level security|policy|42501/i.test(m)) return '권한이 없습니다. 모집이 마감됐거나 승인 상태가 바뀌었을 수 있습니다. 새로고침 후 다시 시도해 주세요.';
   if (/duplicate key|23505/i.test(m)) return '이미 신청한 프로젝트입니다.';
+  if (/too_many_attempts/.test(m)) return '초대 코드를 여러 번 틀려 잠시 막혔습니다. 10분쯤 뒤 다시 시도해 주세요.';
   if (/invalid_code/.test(m)) return '초대 코드가 맞지 않거나 이미 사용·만료됐습니다. 오디오에이지에 새 코드를 요청해 주세요.';
   if (/name_required/.test(m)) return '이름을 입력해 주세요.';
   return m;
@@ -502,6 +503,7 @@ async function boot(){
     if (pj){
       var jr=await sb.rpc('crew_join', { p_code:pj.code, p_name:pj.name||(S.user.user_metadata&&S.user.user_metadata.name)||'', p_phone:pj.phone||'' });
       setPending(null);
+      if (!jr.error && (jr.data==='invalid_code'||jr.data==='too_many_attempts')) jr={ error:{ message:jr.data } };
       if (!jr.error){ toast('합류했습니다. 오디오에이지 크루가 된 것을 환영합니다.'); return boot(); }
       views('join'); return msg('joinMsg', errText(jr.error));
     }
@@ -579,6 +581,7 @@ async function doJoin(ev){
   var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return; lockBtn(f, true, '확인 중…');
   var r=await sb.rpc('crew_join', { p_code:$('jCode').value.trim().toUpperCase(), p_name:$('jName').value.trim(), p_phone:$('jPhone').value.trim() });
   lockBtn(f, false);
+  if (!r.error && (r.data==='invalid_code'||r.data==='too_many_attempts')) r={ error:{ message:r.data } };
   if (r.error) return msg('joinMsg', errText(r.error));
   toast('합류했습니다. 오디오에이지 크루가 된 것을 환영합니다.'); await boot();
 }
