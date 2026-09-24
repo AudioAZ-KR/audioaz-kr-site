@@ -125,6 +125,9 @@ a.btn{text-decoration:none}
 .cal .ev.tn{border-style:dashed}.cal .ev.cf.tn{background:#fff;color:var(--navy);border:1px dashed var(--navy)}
 .mat{margin-top:14px;border:1px solid #B8CDEA;border-radius:4px;background:#F6F9FE;padding:12px 14px}
 .mat .hd{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--blue-deep);margin-bottom:8px}
+.docrow{padding:12px 0;border-top:1px solid var(--line)}.docrow:first-child{border-top:0;padding-top:0}
+.docrow .dk{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.docrow ul{list-style:none;margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:13.5px}
 .mat .contact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid #D5E2F4}
 .mat .contact .k{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line2);border-radius:2px;padding:1px 5px}
 .mat .contact a{color:var(--blue-deep);font-weight:700;font-family:var(--mono);text-underline-offset:3px}
@@ -305,12 +308,18 @@ footer a{text-decoration:underline;text-underline-offset:3px}
         <div class="field"><label>계좌번호</label><input id="pAcct" inputmode="numeric" maxlength="30"></div>
         <div class="field"><label>예금주</label><input id="pHolder" maxlength="30"></div>
       </div>
-      <p class="meta" style="margin:-4px 0 16px">개인은 주민등록번호를 여기서 받지 않습니다. 원천징수 신고에 필요하면 오디오에이지가 따로 연락드립니다.</p>
+      <p class="meta" style="margin:-4px 0 16px">정산 정보와 아래 제출 서류는 오디오에이지 관리자만 봅니다.</p>
       <div class="sec">알림</div>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="pNotify" style="margin-top:4px"> <span>참여 확정·결과 소식을 메일로 받기<br><span class="meta">가입한 이메일로 보냅니다</span></span></label>
       <button class="btn pri" type="submit" id="profBtn">저장</button>
       <div class="msg" id="profMsg"></div>
     </form>
+    <div class="box" id="docsBox" style="margin-top:14px">
+      <div class="h" style="font-size:17px">제출 서류</div>
+      <p class="sub" style="margin-bottom:14px">현장 투입·정산에 필요한 서류를 올려 주세요. <b>본인과 오디오에이지 관리자만</b> 볼 수 있고, 다른 감독은 볼 수 없습니다. 사진(JPG·PNG·HEIC) 또는 PDF, 파일당 10MB까지.</p>
+      <div id="docsList"></div>
+      <p class="meta" style="margin-top:12px">신분증은 원천징수 신고(소득세법)에만 쓰입니다. 탈퇴하면 올린 서류는 함께 삭제됩니다.</p>
+    </div>
   </section>
 
 </main>
@@ -436,7 +445,7 @@ function views(v){
   if (v==='load') show('vLoad',true);
   else if (v==='auth') show('vAuth',true);
   else if (v==='join'){ show('vJoin',true); $('jName').value=$('jName').value||((S.user&&S.user.user_metadata&&S.user.user_metadata.name)||''); $('jWho').textContent=(S.user&&S.user.email)||''; }
-  else if (v==='pending'){ show('vPending',true); show('vProfile',true); }
+  else if (v==='pending'){ show('vPending',true); show('vProfile',true); loadDocs(); }
   else if (v==='inactive'){ show('vInactive',true); }
   else if (v==='app'){ show('vApp',true); setTab(S.tab); }
 }
@@ -477,6 +486,52 @@ async function boot(){
   await loadData();
   views('app');
   pkBanner();
+}
+
+/* ── 제출 서류 (본인·관리자만, 비공개 버킷 crew-docs/<uid>/…) ── */
+var DOC_KINDS=[['safety','안전교육 이수증'],['id','신분증'],['bank','통장 사본'],['other','기타']];
+var DOCS=[];
+async function loadDocs(){
+  if (!S.member || !$('docsList')) return;
+  var r=await sb.from('crew_member_docs').select('id,kind,title,storage_path,size_bytes,created_at').eq('user_id', S.user.id).order('created_at');
+  DOCS=r.data||[]; renderDocs();
+}
+function renderDocs(){
+  $('docsList').innerHTML=DOC_KINDS.map(function(k){
+    var fs=DOCS.filter(function(d){ return d.kind===k[0]; });
+    return '<div class="docrow"><div class="dk"><b>'+k[1]+'</b>'+(fs.length?' <span class="led g"><i></i>제출됨</span>':' <span class="led d"><i></i>미제출</span>')+'</div>'
+      +(fs.length?'<ul>'+fs.map(function(d){ return '<li><button type="button" class="lnk" onclick="openDoc(\''+d.id+'\')">'+esc(d.title)+'</button> <span class="meta">'+sizeStr(d.size_bytes)+' · '+esc(String(d.created_at).slice(0,10))+'</span> <button type="button" class="lnk" style="color:var(--red)" onclick="delDoc(\''+d.id+'\')">삭제</button></li>'; }).join('')+'</ul>':'')
+      +'<label class="btn out sm" style="cursor:pointer;margin-top:6px">파일 올리기<input type="file" accept="image/*,application/pdf" style="display:none" onchange="upDoc(this,\''+k[0]+'\')"></label></div>';
+  }).join('');
+}
+async function upDoc(input, kind){
+  var f=input.files&&input.files[0]; input.value=''; if(!f) return;
+  if (f.size>10485760) return toast('10MB 를 넘는 파일은 올릴 수 없습니다.');
+  var ext=((f.name.match(/\.([A-Za-z0-9]{1,6})$/)||['',''])[1]||'').toLowerCase();
+  var type=f.type||({pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',heic:'image/heic',heif:'image/heif',webp:'image/webp'}[ext]||'');
+  if (!/^(image\/(jpeg|png|heic|heif|webp)|application\/pdf)$/.test(type)) return toast('사진(JPG·PNG·HEIC) 또는 PDF 만 올릴 수 있습니다.');
+  var path=S.user.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+(ext?'.'+ext:'');
+  toast('올리는 중…');
+  var up=await sb.storage.from('crew-docs').upload(path, f, { contentType:type, upsert:false });
+  if (up.error) return toast('올리지 못했습니다: '+errText(up.error));
+  var r=await sb.from('crew_member_docs').insert({ user_id:S.user.id, kind:kind, title:f.name, storage_path:path, size_bytes:f.size });
+  if (r.error){ await sb.storage.from('crew-docs').remove([path]); return toast('올리지 못했습니다: '+errText(r.error)); }
+  toast('제출했습니다.'); loadDocs();
+}
+async function openDoc(id){
+  var d=DOCS.filter(function(x){ return x.id===id; })[0]; if(!d) return;
+  var w=window.open('', '_blank');
+  var r=await sb.storage.from('crew-docs').createSignedUrl(d.storage_path, 120);
+  if (r.error){ if(w) w.close(); return toast('파일을 열 수 없습니다.'); }
+  if (w) w.location=r.data.signedUrl; else location.href=r.data.signedUrl;
+}
+async function delDoc(id){
+  var d=DOCS.filter(function(x){ return x.id===id; })[0]; if(!d) return;
+  if (!confirm('"'+d.title+'" 을(를) 삭제할까요?')) return;
+  var a=await sb.storage.from('crew-docs').remove([d.storage_path]);
+  var r=await sb.from('crew_member_docs').delete().eq('id', id);
+  if (a.error || r.error) return toast('삭제하지 못했습니다.');
+  toast('삭제했습니다.'); loadDocs();
 }
 
 /* ── 초대 코드 합류 ─────────────────────────────────── */
@@ -548,6 +603,7 @@ function setTab(t){
   S.tab=t;
   $('appTabs').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.t===t); });
   show('tProjects', t==='projects'); show('tMine', t==='mine'); show('vProfile', t==='profile');
+  if (t==='profile') loadDocs();
   var op=openProjects().filter(function(p){ return p.status==='open'; }).length, mine=Object.values(S.apps).filter(function(a){ return a.status==='applied'||a.status==='confirmed'; }).length;
   $('cOpen').textContent=op; $('cMine').textContent=mine;
   if (t==='projects') renderProjects(); else if (t==='mine') renderMine();
