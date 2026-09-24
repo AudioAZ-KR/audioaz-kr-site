@@ -110,6 +110,14 @@ button{font-family:inherit}
 .proj .apply{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:none}
 .proj .apply.on{display:block}
 .proj.mine{border-color:#B8CDEA}
+.mat{margin-top:14px;border:1px solid #B8CDEA;border-radius:4px;background:#F6F9FE;padding:12px 14px}
+.mat .hd{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--blue-deep);margin-bottom:8px}
+.mat .notes{font-size:13.5px;white-space:pre-wrap;margin-bottom:10px}
+.mat ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.mat li{display:flex;align-items:center;gap:10px;font-size:14px}
+.mat li .k{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line2);border-radius:2px;padding:1px 5px;flex:none}
+.mat li a,.mat li button{color:var(--blue-deep);text-decoration:underline;text-underline-offset:3px;background:none;border:0;font:inherit;cursor:pointer;text-align:left;padding:0;word-break:break-all}
+.mat li .sz{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
 @media(max-width:600px){.proj{grid-template-columns:78px 1fr}.proj .d{padding:14px 6px}.proj .d .n{font-size:19px}.proj .d .to{font-size:12px}.proj .b{padding:14px}}
 .empty{padding:40px 16px;text-align:center;color:var(--dim);font-size:14px;background:var(--card);border:1px dashed var(--line2);border-radius:6px}
 
@@ -505,6 +513,7 @@ async function saveProfile(ev){
 
 /* ── 데이터 ─────────────────────────────────────────── */
 async function loadData(){
+  MAT={};
   var r=await Promise.all([
     sb.from('crew_projects').select('*').order('date_start',{ascending:true}),
     sb.from('crew_applications').select('*').eq('user_id', S.user.id),
@@ -557,6 +566,7 @@ function renderProjects(){
       +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'<p class="meta">상세 내용이 없습니다.</p>')
       +'<dl style="margin-top:12px"><dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
       +(a&&a.note&&a.status!=='cancelled'?'<p class="meta" style="margin-top:8px">내가 남긴 말: '+esc(a.note)+'</p>':'')
+      +(a&&a.status==='confirmed'?'<div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div>':'')
       +(btn?'<div class="act">'+btn+'</div>':'')
       +'<div class="apply" id="ap-'+p.id+'"><div class="g2">'
       +'<div class="field"><label>희망 포지션</label><input id="apR-'+p.id+'" maxlength="40" placeholder="'+esc(p.roles?'예: '+p.roles.split(/[,·/]/)[0].trim():'예: FOH')+'" value="'+esc(a&&a.role||'')+'"></div>'
@@ -564,8 +574,45 @@ function renderProjects(){
       +'<div style="display:flex;gap:8px"><button class="btn pri sm" onclick="apply(\''+p.id+'\')">참여 신청 보내기</button><button class="btn out sm" onclick="toggleApply(\''+p.id+'\')">닫기</button></div></div>'
       +'</div></div></article>';
   }).join('');
+  fillMaterials();
 }
 function toggleMore(id){ OPEN[id]=!OPEN[id]; renderProjects(); if (OPEN[id]){ var el=$('pj-'+id); if (el && el.getBoundingClientRect().top<0) el.scrollIntoView({block:'start'}); } }
+/* ── 확정자 전용 자료 — 서버(RLS)가 확정된 활동 감독에게만 내준다. 파일은 2분짜리 서명 링크로 받는다. ── */
+var MAT={};
+async function loadMaterials(pid){
+  if (MAT[pid]) return MAT[pid];
+  var r=await Promise.all([
+    sb.from('crew_project_private').select('notes').eq('project_id', pid).maybeSingle(),
+    sb.from('crew_project_files').select('id,kind,title,url,storage_path,size_bytes').eq('project_id', pid).order('sort').order('created_at')
+  ]);
+  if (r[0].error || r[1].error) return { error:(r[0].error||r[1].error) };
+  MAT[pid]={ notes:(r[0].data&&r[0].data.notes)||'', files:r[1].data||[] };
+  return MAT[pid];
+}
+function sizeStr(b){ if(!b) return ''; return b>=1048576 ? (b/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(b/1024))+'KB'; }
+async function fillMaterials(){
+  var boxes=document.querySelectorAll('.mat[id^="mat-"]');
+  for (var i=0;i<boxes.length;i++){
+    var box=boxes[i], pid=box.id.slice(4), m=await loadMaterials(pid);
+    if (!document.body.contains(box)) continue;
+    if (m.error){ box.innerHTML='<div class="hd">확정자 전용 자료</div><p class="meta">자료를 불러오지 못했습니다. 새로고침해 주세요.</p>'; continue; }
+    if (!m.notes && !m.files.length){ box.innerHTML='<div class="hd">확정자 전용 자료</div><p class="meta">아직 올라온 자료가 없습니다. 큐시트 등이 올라오면 여기에 표시됩니다.</p>'; continue; }
+    box.innerHTML='<div class="hd">확정자 전용 자료</div>'
+      +(m.notes?'<div class="notes">'+esc(m.notes)+'</div>':'')
+      +(m.files.length?'<ul>'+m.files.map(function(f){
+          return '<li><span class="k">'+(f.kind==='file'?'파일':'링크')+'</span>'
+            +(f.kind==='link' && /^https?:\/\//i.test(f.url||'') ? '<a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.title)+'</a>'
+              : '<button type="button" onclick="getFile(\''+pid+'\',\''+f.id+'\')">'+esc(f.title)+'</button><span class="sz">'+sizeStr(f.size_bytes)+'</span>')
+            +'</li>'; }).join('')+'</ul>':'');
+  }
+}
+async function getFile(pid, id){
+  var m=MAT[pid]; var f=m&&m.files.filter(function(x){ return x.id===id; })[0]; if(!f) return;
+  var w=window.open('', '_blank');   // 팝업 차단 피하려고 클릭 순간에 창을 먼저 연다
+  var r=await sb.storage.from('crew-files').createSignedUrl(f.storage_path, 120, { download:f.title });
+  if (r.error){ if(w) w.close(); return toast('파일을 열 수 없습니다. 확정 상태인지 확인해 주세요.'); }
+  if (w) w.location=r.data.signedUrl; else location.href=r.data.signedUrl;
+}
 function toggleApply(id){ var el=$('ap-'+id); el.classList.toggle('on'); if (el.classList.contains('on')) $('apR-'+id).focus(); }
 async function apply(id){
   var role=$('apR-'+id).value.trim()||null, note=$('apN-'+id).value.trim()||null, a=S.apps[id], r;
@@ -616,7 +663,8 @@ function renderMine(){
     return arr.map(function(x){ var p=x.p, a=x.a, st=APP[a.status], canC = cancel && a.status==='applied' && p.status==='open';
       return '<tr><td class="dt">'+esc(dLabel(p))+'</td><td><b>'+esc(p.title)+'</b>'+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
         +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
-        +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+(a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+'</td></tr>'; }).join('');
+        +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+(a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
+        +(a.status==='confirmed'?'<tr class="matrow" id="mr-'+p.id+'" style="display:none"><td colspan="6" class="full"><div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div></td></tr>':''); }).join('');
   }
   var head='<table class="tbl"><thead><tr><th>DATE</th><th>PROJECT</th><th>CALL</th><th>POSITION</th><th>STATUS</th><th></th></tr></thead><tbody>';
   var h='';
@@ -625,6 +673,7 @@ function renderMine(){
   if (past.length) h += '<div class="sec">지난 일정</div>'+head+rows(past,false)+'</tbody></table>';
   $('mineList').innerHTML=h;
 }
+function toggleMat(pid){ var r=$('mr-'+pid); if(!r) return; var on=r.style.display==='none'; r.style.display=on?'':'none'; if(on) fillMaterials(); }
 function renderCal(){
   var y=S.calY, m=S.calM, first=new Date(y,m,1), start=new Date(y,m,1-first.getDay()), t=today();
   var ev={}; myItems().forEach(function(x){ if (x.a.status!=='confirmed' && x.a.status!=='applied') return;
