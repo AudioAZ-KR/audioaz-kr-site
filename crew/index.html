@@ -88,10 +88,11 @@ button{font-family:inherit}
 
 /* 프로젝트 */
 .plist{display:flex;flex-direction:column;gap:10px}
-.proj{background:var(--card);border:1px solid var(--line);border-radius:6px;display:grid;grid-template-columns:92px 1fr;overflow:hidden}
+.proj{background:var(--card);border:1px solid var(--line);border-radius:6px;display:grid;grid-template-columns:108px 1fr;overflow:hidden}
 .proj .d{border-right:1px solid var(--line);padding:16px 10px;text-align:center;background:#FAFBFD}
 .proj .d .m{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em}
-.proj .d .n{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1.15;margin-top:2px}
+.proj .d .n{font-family:var(--mono);font-size:25px;font-weight:700;line-height:1.15;margin-top:2px;letter-spacing:-.02em;white-space:nowrap}
+.proj .d .to{font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--text);margin-top:2px;white-space:nowrap}
 .proj .d .w{font-size:12px;color:var(--dim);font-weight:700}
 .proj .d .e{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:6px;border-top:1px solid var(--line);padding-top:6px}
 .proj .b{padding:16px 18px;min-width:0}
@@ -101,10 +102,15 @@ button{font-family:inherit}
 .proj dt{color:var(--dim);font-size:12.5px}
 .proj .desc{font-size:13.5px;color:#34435C;margin-top:10px;white-space:pre-wrap;border-left:2px solid var(--line2);padding-left:10px}
 .proj .act{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.proj .more{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.proj .more.on{display:block}
+.proj .more .desc{margin-top:0}
+.btn.sm .chev{display:inline-block;margin-left:6px;transition:transform .15s}
+.btn.sm.open .chev{transform:rotate(180deg)}
 .proj .apply{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:none}
 .proj .apply.on{display:block}
 .proj.mine{border-color:#B8CDEA}
-@media(max-width:600px){.proj{grid-template-columns:70px 1fr}.proj .d .n{font-size:21px}.proj .b{padding:14px}}
+@media(max-width:600px){.proj{grid-template-columns:78px 1fr}.proj .d{padding:14px 6px}.proj .d .n{font-size:19px}.proj .d .to{font-size:12px}.proj .b{padding:14px}}
 .empty{padding:40px 16px;text-align:center;color:var(--dim);font-size:14px;background:var(--card);border:1px dashed var(--line2);border-radius:6px}
 
 /* 달력 */
@@ -523,34 +529,43 @@ function setTab(t){
 }
 
 /* ── 모집 중 프로젝트 ───────────────────────────────── */
+var OPEN={};   // 펼친 카드 (다시 그려도 유지)
 function renderProjects(){
   var list=openProjects();
   if (!list.length){ $('projList').innerHTML='<div class="empty">지금 모집 중인 프로젝트가 없습니다.<br>새 프로젝트가 올라오면 여기에 표시됩니다.</div>'; return; }
   $('projList').innerHTML=list.map(function(p){
-    var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open';
+    var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open', on=!!OPEN[p.id];
+    var md=function(d){ return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); };
+    var e2=n>1?pd(p.date_end):null;
     var state = a ? '<span class="led '+APP[a.status][0]+'"><i></i>'+APP[a.status][1]+'</span>' : (open ? '' : '<span class="led d"><i></i>모집 마감</span>');
     var btn='';
     if (open && (!a || a.status==='cancelled')) btn='<button class="btn pri sm" onclick="toggleApply(\''+p.id+'\')">'+(a?'다시 참여하기':'참여하기')+'</button>';
     else if (open && a && a.status==='applied') btn='<button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>';
     else if (a && a.status==='confirmed') btn='<button class="btn out sm" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>';
     return '<article class="proj'+(a&&a.status!=='cancelled'?' mine':'')+'" id="pj-'+p.id+'">'
-      +'<div class="d"><div class="m">'+s.getFullYear()+'.'+String(s.getMonth()+1).padStart(2,'0')+'</div><div class="n">'+String(s.getDate()).padStart(2,'0')+'</div><div class="w">'+WD[s.getDay()]+'요일</div>'+(n>1?'<div class="e">'+n+'일간</div>':'')+'</div>'
+      +'<div class="d"><div class="m">'+s.getFullYear()+'</div><div class="n">'+md(s)+'</div>'
+      +(e2?'<div class="to">~ '+md(e2)+'</div>':'')
+      +'<div class="w">'+WD[s.getDay()]+'요일'+(e2?' ~ '+WD[e2.getDay()]:'')+'</div>'+(n>1?'<div class="e">'+n+'일간</div>':'')+'</div>'
       +'<div class="b"><div class="t"><h3>'+esc(p.title)+'</h3>'+state+'</div>'
       +'<dl><dt>일정</dt><dd>'+esc(dLabel(p))+'</dd>'
       +(p.call_time?'<dt>콜타임</dt><dd>'+esc(p.call_time)+'</dd>':'')
       +(p.venue?'<dt>장소</dt><dd>'+esc(p.venue)+'</dd>':'')
       +(p.roles?'<dt>모집</dt><dd>'+esc(p.roles)+(p.headcount?' · '+p.headcount+'명':'')+'</dd>':(p.headcount?'<dt>모집</dt><dd>'+p.headcount+'명</dd>':''))
-      +'<dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
-      +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'')
-      +(a&&a.note&&a.status!=='cancelled'?'<p class="meta" style="margin-top:10px">내가 남긴 말: '+esc(a.note)+'</p>':'')
-      +'<div class="act">'+btn+'</div>'
+      +'</dl>'
+      +'<div class="act"><button class="btn out sm'+(on?' open':'')+'" onclick="toggleMore(\''+p.id+'\')">'+(on?'접기':'내용보기')+'<span class="chev">▾</span></button></div>'
+      +'<div class="more'+(on?' on':'')+'" id="mo-'+p.id+'">'
+      +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'<p class="meta">상세 내용이 없습니다.</p>')
+      +'<dl style="margin-top:12px"><dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
+      +(a&&a.note&&a.status!=='cancelled'?'<p class="meta" style="margin-top:8px">내가 남긴 말: '+esc(a.note)+'</p>':'')
+      +(btn?'<div class="act">'+btn+'</div>':'')
       +'<div class="apply" id="ap-'+p.id+'"><div class="g2">'
       +'<div class="field"><label>희망 포지션</label><input id="apR-'+p.id+'" maxlength="40" placeholder="'+esc(p.roles?'예: '+p.roles.split(/[,·/]/)[0].trim():'예: FOH')+'" value="'+esc(a&&a.role||'')+'"></div>'
       +'<div class="field"><label>남길 말 (선택)</label><input id="apN-'+p.id+'" maxlength="300" placeholder="가능 시간, 참고 사항 등" value="'+esc(a&&a.note||'')+'"></div></div>'
       +'<div style="display:flex;gap:8px"><button class="btn pri sm" onclick="apply(\''+p.id+'\')">참여 신청 보내기</button><button class="btn out sm" onclick="toggleApply(\''+p.id+'\')">닫기</button></div></div>'
-      +'</div></article>';
+      +'</div></div></article>';
   }).join('');
 }
+function toggleMore(id){ OPEN[id]=!OPEN[id]; renderProjects(); if (OPEN[id]){ var el=$('pj-'+id); if (el && el.getBoundingClientRect().top<0) el.scrollIntoView({block:'start'}); } }
 function toggleApply(id){ var el=$('ap-'+id); el.classList.toggle('on'); if (el.classList.contains('on')) $('apR-'+id).focus(); }
 async function apply(id){
   var role=$('apR-'+id).value.trim()||null, note=$('apN-'+id).value.trim()||null, a=S.apps[id], r;
