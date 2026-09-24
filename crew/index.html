@@ -353,6 +353,8 @@ function amrOf(s){ try{ return JSON.parse(atob(s.access_token.split('.')[1].repl
 async function pkBanner(){
   var s=(await sb.auth.getSession()).data.session, later=0;
   try{ later=+localStorage.getItem('az_crew_pk_later')||0; }catch(_){}
+  // 관리자 계정이면 안내하지 않는다(관리자 패스키는 콘솔 전용 — 크루로는 넘기지 않음)
+  if (s && S.user){ var ad=await sb.from('profiles').select('is_admin').eq('id', S.user.id).maybeSingle(); if (ad.error || (ad.data && ad.data.is_admin)){ show('pkBanner', false); return; } }
   var viaPk = s && amrOf(s).some(function(m){ return /passkey|webauthn/i.test(m.method||''); });
   var enrolled = false; try{ enrolled = localStorage.getItem('az_crew_pk_done')==='1'; }catch(_){}
   if (viaPk){ try{ localStorage.setItem('az_crew_pk_done','1'); }catch(_){} }
