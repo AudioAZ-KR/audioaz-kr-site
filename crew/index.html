@@ -110,6 +110,15 @@ button{font-family:inherit}
 .proj .apply{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:none}
 .proj .apply.on{display:block}
 .proj.mine{border-color:#B8CDEA}
+.trav{margin-top:8px;font-size:13px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px}.trav:before{content:'';width:8px;height:8px;border:1.5px solid var(--navy);border-radius:1px;flex:none}
+.cal .ev.mv{opacity:.55}
+.subbox{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);border:1px solid #B8CDEA;border-left:3px solid var(--blue);border-radius:6px;padding:14px 16px;margin-bottom:14px}
+.subbox b{font-size:15px}.subbox p{font-size:13px;color:var(--dim);margin-top:2px}
+.sb-btns{display:flex;gap:8px;flex-wrap:wrap}
+.sheet{position:fixed;inset:0;background:rgba(8,23,41,.45);display:none;align-items:flex-end;justify-content:center;z-index:60;padding:16px}
+.sheet .sh{background:var(--card);border-radius:8px;padding:18px;width:100%;max-width:420px;margin-bottom:max(16px,env(safe-area-inset-bottom))}
+@media(min-width:600px){.sheet{align-items:center}}
+a.btn{text-decoration:none}
 .tent{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding:7px 10px;border:1px dashed #E7A23B;border-radius:4px;background:#FFF9EE;font-size:13px;color:#8A5A12}
 .cal .ev.tn{border-style:dashed}.cal .ev.cf.tn{background:#fff;color:var(--navy);border:1px dashed var(--navy)}
 .mat{margin-top:14px;border:1px solid #B8CDEA;border-radius:4px;background:#F6F9FE;padding:12px 14px}
@@ -558,6 +567,7 @@ function renderProjects(){
       +(e2?'<div class="to">~ '+md(e2)+'</div>':'')
       +'<div class="w">'+WD[s.getDay()]+'요일'+(e2?' ~ '+WD[e2.getDay()]:'')+'</div>'+(n>1?'<div class="e">'+n+'일간</div>':'')+'</div>'
       +'<div class="b"><div class="t"><h3>'+esc(p.title)+'</h3>'+state+'</div>'
+      +(travelText(p)?'<div class="trav">'+esc(travelText(p))+'</div>':'')
       +(p.is_tentative?'<div class="tent"><span class="led a"><i></i>예정</span><span>임시로 잡힌 일정이라 바뀌거나 취소될 수 있습니다</span></div>':'')
       +'<dl><dt>일정</dt><dd>'+esc(dLabel(p))+'</dd>'
       +(p.call_time?'<dt>콜타임</dt><dd>'+esc(p.call_time)+'</dd>':'')
@@ -633,20 +643,55 @@ async function cancelApp(id){
   toast('신청을 취소했습니다.'); await loadData(); setTab(S.tab);
 }
 
-/* ── 캘린더 파일(.ics) — 아이폰·구글·아웃룩 캘린더에 추가 ── */
-function icsDate(d){ return d.replace(/-/g,''); }
-function nextDay(d){ var x=pd(d); x.setDate(x.getDate()+1); return x.getFullYear()+String(x.getMonth()+1).padStart(2,'0')+String(x.getDate()).padStart(2,'0'); }
-function icsEsc(t){ return String(t||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+/* ── 캘린더 — 참여 확정된 일정만 (사장님 규칙). 파일 내려받기 대신 구글·아이폰 캘린더에 바로 등록 ── */
+var ICAL='https://lkbbenyvchddsjsihofv.supabase.co/functions/v1/crew-ical';
+function ymd8(d){ return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+function dshift(s,n){ var d=pd(s); d.setDate(d.getDate()+n); return d; }
+function span(p){   // 이동일 포함 실제 일정 [시작, 끝]
+  var end=p.date_end&&p.date_end>p.date_start?p.date_end:p.date_start;
+  return { s:dshift(p.date_start, p.depart_day_before?-1:0), e:dshift(end, p.return_day_after?1:0), end:end };
+}
+function travelText(p){
+  var t=[], end=p.date_end&&p.date_end>p.date_start?p.date_end:p.date_start;
+  if (p.depart_day_before){ var a=dshift(p.date_start,-1); t.push('전날 출발 '+(a.getMonth()+1)+'.'+a.getDate()+' ('+WD[a.getDay()]+')'); }
+  if (p.return_day_after){ var b=dshift(end,1); t.push('다음날 복귀 '+(b.getMonth()+1)+'.'+b.getDate()+' ('+WD[b.getDay()]+')'); }
+  return t.join(' · ');
+}
+function googleUrl(p){
+  var sp=span(p), a=S.apps[p.id]||{}, e=new Date(sp.e); e.setDate(e.getDate()+1);
+  var det=[p.is_tentative?'※ 예정(임시) 일정 — 바뀌거나 취소될 수 있습니다':'', travelText(p), p.call_time?'콜타임: '+p.call_time:'', a.role?'포지션: '+a.role:'', '자료·상세: '+HERE].filter(Boolean).join('\n');
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('[AudioAZ] '+(p.is_tentative?'(예정) ':'')+p.title)
+    +'&dates='+ymd8(sp.s)+'/'+ymd8(e)+'&details='+encodeURIComponent(det)+(p.venue?'&location='+encodeURIComponent(p.venue):'');
+}
 function addCal(id){
   var p=null; S.projects.forEach(function(x){ if(x.id===id) p=x; }); if(!p) return;
-  var a=S.apps[id]||{}, note=[p.call_time?'콜타임: '+p.call_time:'', a.role?'포지션: '+a.role:'', p.description||''].filter(Boolean).join('\n');
-  var now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
-  var ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AudioAZ//Crew//KO','CALSCALE:GREGORIAN','BEGIN:VEVENT',
-    'UID:crew-'+p.id+'@audioaz.co.kr','DTSTAMP:'+now,'DTSTART;VALUE=DATE:'+icsDate(p.date_start),'DTEND;VALUE=DATE:'+nextDay(p.date_end||p.date_start),
-    'SUMMARY:'+icsEsc('[AudioAZ] '+(p.is_tentative?'(예정) ':'')+p.title), p.venue?'LOCATION:'+icsEsc(p.venue):'', note?'DESCRIPTION:'+icsEsc(note):'', 'URL:'+HERE, 'END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
-  var url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
-  var el=document.createElement('a'); el.href=url; el.download='audioaz-'+p.date_start+'.ics'; document.body.appendChild(el); el.click(); el.remove();
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  var a=S.apps[id]; if (!a || a.status!=='confirmed') return toast('참여 확정된 일정만 캘린더에 넣을 수 있습니다.');
+  var tk=S.member&&S.member.ical_token;
+  sheet('캘린더에 추가', '<p class="sub" style="margin:0 0 14px">'+esc(p.title)+' · '+esc(dLabel(p))+(travelText(p)?' · '+esc(travelText(p)):'')+'</p>'
+    +'<a class="btn pri full" href="'+esc(googleUrl(p))+'" target="_blank" rel="noopener">구글 캘린더에 추가</a>'
+    +(tk?'<a class="btn out full" style="margin-top:8px" href="'+esc(ICAL+'?t='+tk+'&p='+p.id)+'">아이폰·맥 캘린더에 추가</a>':'')
+    +'<p class="meta" style="margin-top:12px">매번 넣기 번거로우면 [내 일정]의 "내 캘린더에 자동 연동"을 한 번 켜 두세요. 참여 확정된 일정이 저절로 들어갑니다.</p>');
+}
+function sheet(title, html){
+  var m=$('sheet'); if(!m){ m=document.createElement('div'); m.id='sheet'; m.className='sheet'; m.onclick=function(e){ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
+  m.innerHTML='<div class="sh"><div style="display:flex;align-items:center;margin-bottom:10px"><b style="font-size:17px;flex:1">'+esc(title)+'</b><button type="button" class="lnk" onclick="$(\'sheet\').style.display=\'none\'">닫기</button></div>'+html+'</div>';
+  m.style.display='flex';
+}
+/* 자동 연동(구독): 내 참여 확정 일정 전체가 캘린더에 들어가고, 바뀌거나 취소되면 따라 바뀐다 */
+function subscribeBox(){
+  var tk=S.member&&S.member.ical_token; if(!tk) return '';
+  var https=ICAL+'?t='+tk, webcal=https.replace(/^https:/,'webcal:');
+  return '<div class="subbox"><div style="flex:1;min-width:220px"><b>내 캘린더에 자동 연동</b><p>참여 확정된 일정만 내 캘린더에 저절로 들어갑니다. 일정이 바뀌거나 취소되면 캘린더도 따라 바뀝니다(1시간 간격).</p></div>'
+    +'<div class="sb-btns"><a class="btn pri sm" href="'+esc(webcal)+'">아이폰·맥 캘린더</a>'
+    +'<a class="btn out sm" href="'+esc('https://calendar.google.com/calendar/r?cid='+encodeURIComponent(webcal))+'" target="_blank" rel="noopener">구글 캘린더</a>'
+    +'<button class="btn out sm" type="button" onclick="copySub()">주소 복사</button></div>'
+    +'<p class="meta" style="width:100%;margin-top:8px">이 주소는 나만 쓰는 비밀 주소입니다. 남에게 보냈다면 <button type="button" class="lnk" onclick="resetSub()">주소 새로 만들기</button>로 바꾸세요(기존 연동은 끊깁니다).</p></div>';
+}
+function copySub(){ var t=ICAL+'?t='+S.member.ical_token; (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('캘린더 주소를 복사했습니다.'); },function(){ prompt('캘린더 주소', t); }); }
+async function resetSub(){
+  if (!confirm('캘린더 주소를 새로 만듭니다. 지금 연동된 캘린더는 더 이상 갱신되지 않으니 새 주소로 다시 연동해 주세요.')) return;
+  var r=await sb.rpc('crew_reset_ical_token'); if (r.error) return toast(errText(r.error));
+  S.member.ical_token=r.data; toast('새 주소를 만들었습니다. 다시 연동해 주세요.'); renderMine();
 }
 
 /* ── 내 일정 ────────────────────────────────────────── */
@@ -674,14 +719,14 @@ function renderMine(){
   h += up.length ? head+rows(up,true)+'</tbody></table>' : '<div class="empty">예정된 일정이 없습니다. [모집 중 프로젝트]에서 참여 신청을 남겨 주세요.</div>';
   if (other.length) h += '<div class="sec">거절·취소</div>'+head+rows(other,false)+'</tbody></table>';
   if (past.length) h += '<div class="sec">지난 일정</div>'+head+rows(past,false)+'</tbody></table>';
-  $('mineList').innerHTML=h;
+  $('mineList').innerHTML=subscribeBox()+h;
 }
 function toggleMat(pid){ var r=$('mr-'+pid); if(!r) return; var on=r.style.display==='none'; r.style.display=on?'':'none'; if(on) fillMaterials(); }
 function renderCal(){
   var y=S.calY, m=S.calM, first=new Date(y,m,1), start=new Date(y,m,1-first.getDay()), t=today();
   var ev={}; myItems().forEach(function(x){ if (x.a.status!=='confirmed' && x.a.status!=='applied') return;
-    var d=pd(x.p.date_start), e=x.p.date_end?pd(x.p.date_end):d; if (e<d) e=d;
-    for (var k=new Date(d); k<=e; k.setDate(k.getDate()+1)){ var key=k.getFullYear()+'-'+String(k.getMonth()+1).padStart(2,'0')+'-'+String(k.getDate()).padStart(2,'0'); (ev[key]=ev[key]||[]).push(x); } });
+    var sp=span(x.p), d0=pd(x.p.date_start), d1=pd(sp.end);
+    for (var k=new Date(sp.s); k<=sp.e; k.setDate(k.getDate()+1)){ var key=k.getFullYear()+'-'+String(k.getMonth()+1).padStart(2,'0')+'-'+String(k.getDate()).padStart(2,'0'); (ev[key]=ev[key]||[]).push({p:x.p,a:x.a,mv:(k<d0||k>d1)}); } });
   var h='<div class="hd"><button type="button" onclick="calMove(-1)" aria-label="이전 달">‹</button><b>'+y+'.'+String(m+1).padStart(2,'0')+'</b><button type="button" onclick="calMove(1)" aria-label="다음 달">›</button></div><div class="gr">';
   WD.forEach(function(w){ h+='<div class="wd">'+w+'</div>'; });
   for (var i=0;i<42;i++){
@@ -689,7 +734,7 @@ function renderCal(){
     if (i>=35 && d.getMonth()!==m) break;
     var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     h+='<div class="c'+(d.getMonth()!==m?' o':'')+(key===t?' td':'')+'"><span class="dn">'+d.getDate()+'</span>'
-      +(ev[key]||[]).map(function(x){ return '<span class="ev '+(x.a.status==='confirmed'?'cf':'ap')+(x.p.is_tentative?' tn':'')+'" title="'+esc((x.p.is_tentative?'(예정) ':'')+x.p.title)+'">'+(x.p.is_tentative?'예정·':'')+esc(x.p.title)+'</span>'; }).join('')+'</div>';
+      +(ev[key]||[]).map(function(x){ return '<span class="ev '+(x.a.status==='confirmed'?'cf':'ap')+(x.p.is_tentative?' tn':'')+(x.mv?' mv':'')+'" title="'+esc((x.p.is_tentative?'(예정) ':'')+x.p.title)+'">'+(x.mv?'이동·':'')+(x.p.is_tentative?'예정·':'')+esc(x.p.title)+'</span>'; }).join('')+'</div>';
   }
   h+='</div><div class="lg"><span><i style="background:var(--navy)"></i>참여 확정</span><span><i style="border:1px solid var(--blue)"></i>신청 중</span><span><i style="border:1px dashed var(--navy)"></i>예정(임시)</span></div>';
   $('cal').innerHTML=h;
