@@ -110,6 +110,8 @@ button{font-family:inherit}
 .proj .apply{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:none}
 .proj .apply.on{display:block}
 .proj.mine{border-color:#B8CDEA}
+.tent{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding:7px 10px;border:1px dashed #E7A23B;border-radius:4px;background:#FFF9EE;font-size:13px;color:#8A5A12}
+.cal .ev.tn{border-style:dashed}.cal .ev.cf.tn{background:#fff;color:var(--navy);border:1px dashed var(--navy)}
 .mat{margin-top:14px;border:1px solid #B8CDEA;border-radius:4px;background:#F6F9FE;padding:12px 14px}
 .mat .hd{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--blue-deep);margin-bottom:8px}
 .mat .notes{font-size:13.5px;white-space:pre-wrap;margin-bottom:10px}
@@ -319,7 +321,7 @@ var sb = window.supabase.createClient('https://lkbbenyvchddsjsihofv.supabase.co'
 var HERE = location.origin + '/crew/';
 var S = { user:null, member:null, projects:[], apps:{}, counts:{}, tab:'projects', calY:0, calM:0, openApply:null };
 var WD = ['일','월','화','수','목','금','토'];
-var APP = { applied:['a','신청 완료 · 확인 중'], confirmed:['g','확정'], declined:['r','이번엔 함께하지 못함'], cancelled:['d','신청 취소함'] };
+var APP = { applied:['a','신청 완료 · 확인 중'], confirmed:['g','참여 확정'], declined:['r','이번엔 함께하지 못함'], cancelled:['d','신청 취소함'] };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s===null||s===undefined?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -556,6 +558,7 @@ function renderProjects(){
       +(e2?'<div class="to">~ '+md(e2)+'</div>':'')
       +'<div class="w">'+WD[s.getDay()]+'요일'+(e2?' ~ '+WD[e2.getDay()]:'')+'</div>'+(n>1?'<div class="e">'+n+'일간</div>':'')+'</div>'
       +'<div class="b"><div class="t"><h3>'+esc(p.title)+'</h3>'+state+'</div>'
+      +(p.is_tentative?'<div class="tent"><span class="led a"><i></i>예정</span><span>임시로 잡힌 일정이라 바뀌거나 취소될 수 있습니다</span></div>':'')
       +'<dl><dt>일정</dt><dd>'+esc(dLabel(p))+'</dd>'
       +(p.call_time?'<dt>콜타임</dt><dd>'+esc(p.call_time)+'</dd>':'')
       +(p.venue?'<dt>장소</dt><dd>'+esc(p.venue)+'</dd>':'')
@@ -640,7 +643,7 @@ function addCal(id){
   var now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
   var ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AudioAZ//Crew//KO','CALSCALE:GREGORIAN','BEGIN:VEVENT',
     'UID:crew-'+p.id+'@audioaz.co.kr','DTSTAMP:'+now,'DTSTART;VALUE=DATE:'+icsDate(p.date_start),'DTEND;VALUE=DATE:'+nextDay(p.date_end||p.date_start),
-    'SUMMARY:'+icsEsc('[AudioAZ] '+p.title), p.venue?'LOCATION:'+icsEsc(p.venue):'', note?'DESCRIPTION:'+icsEsc(note):'', 'URL:'+HERE, 'END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
+    'SUMMARY:'+icsEsc('[AudioAZ] '+(p.is_tentative?'(예정) ':'')+p.title), p.venue?'LOCATION:'+icsEsc(p.venue):'', note?'DESCRIPTION:'+icsEsc(note):'', 'URL:'+HERE, 'END:VEVENT','END:VCALENDAR'].filter(Boolean).join('\r\n');
   var url=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
   var el=document.createElement('a'); el.href=url; el.download='audioaz-'+p.date_start+'.ics'; document.body.appendChild(el); el.click(); el.remove();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
@@ -661,7 +664,7 @@ function renderMine(){
   var other=items.filter(function(x){ return x.a.status==='declined' || (x.a.status==='cancelled' && (x.p.date_end||x.p.date_start)>=t); });
   function rows(arr, cancel){
     return arr.map(function(x){ var p=x.p, a=x.a, st=APP[a.status], canC = cancel && a.status==='applied' && p.status==='open';
-      return '<tr><td class="dt">'+esc(dLabel(p))+'</td><td><b>'+esc(p.title)+'</b>'+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
+      return '<tr><td class="dt">'+esc(dLabel(p))+'</td><td><b>'+esc(p.title)+'</b>'+(p.is_tentative?' <span class="led a" style="margin-left:4px"><i></i>예정</span>':'')+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
         +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
         +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+(a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
         +(a.status==='confirmed'?'<tr class="matrow" id="mr-'+p.id+'" style="display:none"><td colspan="6" class="full"><div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div></td></tr>':''); }).join('');
@@ -686,9 +689,9 @@ function renderCal(){
     if (i>=35 && d.getMonth()!==m) break;
     var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     h+='<div class="c'+(d.getMonth()!==m?' o':'')+(key===t?' td':'')+'"><span class="dn">'+d.getDate()+'</span>'
-      +(ev[key]||[]).map(function(x){ return '<span class="ev '+(x.a.status==='confirmed'?'cf':'ap')+'" title="'+esc(x.p.title)+'">'+esc(x.p.title)+'</span>'; }).join('')+'</div>';
+      +(ev[key]||[]).map(function(x){ return '<span class="ev '+(x.a.status==='confirmed'?'cf':'ap')+(x.p.is_tentative?' tn':'')+'" title="'+esc((x.p.is_tentative?'(예정) ':'')+x.p.title)+'">'+(x.p.is_tentative?'예정·':'')+esc(x.p.title)+'</span>'; }).join('')+'</div>';
   }
-  h+='</div><div class="lg"><span><i style="background:var(--navy)"></i>확정</span><span><i style="border:1px solid var(--blue)"></i>신청 중</span></div>';
+  h+='</div><div class="lg"><span><i style="background:var(--navy)"></i>참여 확정</span><span><i style="border:1px solid var(--blue)"></i>신청 중</span><span><i style="border:1px dashed var(--navy)"></i>예정(임시)</span></div>';
   $('cal').innerHTML=h;
 }
 function calMove(k){ S.calM+=k; if (S.calM<0){ S.calM=11; S.calY--; } if (S.calM>11){ S.calM=0; S.calY++; } renderCal(); }
