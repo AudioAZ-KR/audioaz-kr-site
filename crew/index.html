@@ -644,7 +644,7 @@ function renderProjects(){
     var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open', on=!!OPEN[p.id];
     var md=function(d){ return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); };
     var e2=n>1?pd(p.date_end):null;
-    var state = a ? '<span class="led '+APP[a.status][0]+'"><i></i>'+APP[a.status][1]+'</span>' : (open ? '' : '<span class="led d"><i></i>모집 마감</span>');
+    var state = a ? '<span class="led '+APP[a.status][0]+'"><i></i>'+APP[a.status][1]+'</span>' : (open ? '' : '<span class="led d"><i></i>'+(p.auto_closed?'정원 마감':'모집 마감')+'</span>');
     var btn='';
     if (open && (!a || a.status==='cancelled')) btn='<button class="btn pri sm" onclick="toggleApply(\''+p.id+'\')">'+(a?'다시 참여하기':'참여하기')+'</button>';
     else if (open && a && a.status==='applied') btn='<button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>';
