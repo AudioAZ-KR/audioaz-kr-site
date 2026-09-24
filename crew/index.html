@@ -370,6 +370,21 @@ function errText(e){
   return m;
 }
 
+/* 전화번호 자동 하이픈 (01035470502 → 010-3547-0502, 02·지역번호·1588 대표번호 포함) */
+function fmtPhone(v){
+  var d=String(v||'').replace(/\D/g,'').slice(0,12); if(!d) return '';
+  if (/^02/.test(d)){ if(d.length<=2) return d; if(d.length<=5) return d.slice(0,2)+'-'+d.slice(2); if(d.length<=9) return d.slice(0,2)+'-'+d.slice(2,5)+'-'+d.slice(5); return d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6,10); }
+  if (/^1[5689]/.test(d)){ return d.length<=4 ? d : d.slice(0,4)+'-'+d.slice(4,8); }
+  if (/^050/.test(d) && d.length>11) return d.slice(0,4)+'-'+d.slice(4,8)+'-'+d.slice(8,12);
+  if (d.length<=3) return d; if (d.length<=6) return d.slice(0,3)+'-'+d.slice(3);
+  if (d.length<=10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+  return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7,11);
+}
+document.addEventListener('input', function(ev){
+  var t=ev.target; if (!t || !t.matches || !t.matches('input[type=tel],input[data-phone]')) return;
+  var f=fmtPhone(t.value); if (f!==t.value){ t.value=f; try{ t.setSelectionRange(f.length,f.length); }catch(_){} }
+});
+
 /* ── 인증 ───────────────────────────────────────────── */
 $('authTabs').addEventListener('click', function(ev){
   var b=ev.target.closest('button[data-a]'); if(!b) return;
@@ -560,7 +575,7 @@ async function doJoin(ev){
 /* ── 프로필 ─────────────────────────────────────────── */
 function fillProfile(){
   var m=S.member||{}, meta=(S.user&&S.user.user_metadata)||{}, ln='';
-  $('pName').value=m.name||meta.name||ln||''; $('pPhone').value=m.phone||''; $('pSpec').value=m.specialty||''; $('pCareer').value=m.career||'';
+  $('pName').value=m.name||meta.name||ln||''; $('pPhone').value=fmtPhone(m.phone)||m.phone||''; $('pSpec').value=m.specialty||''; $('pCareer').value=m.career||'';
   document.querySelectorAll('input[name=pBiz]').forEach(function(x){ x.checked = (x.value==='1') === !!m.is_business; });
   $('pBizName').value=m.biz_name||''; $('pBizNo').value=m.biz_no||'';
   $('pNotify').checked = m.notify_email!==false;
@@ -676,7 +691,7 @@ async function fillMaterials(){
     var tel=(ct.phone||'').replace(/[^0-9+]/g,'');
     box.innerHTML='<div class="hd">확정자 전용 자료</div>'
       +(hasC?'<div class="contact"><span class="k">현장 담당자</span><b>'+esc(ct.name||'')+'</b>'+(ct.title?' <span class="meta">'+esc(ct.title)+'</span>':'')
-        +(ct.phone?(tel?' <a href="tel:'+esc(tel)+'">'+esc(ct.phone)+'</a>':' '+esc(ct.phone)):'')+'</div>':'')
+        +(ct.phone?(tel?' <a href="tel:'+esc(tel)+'">'+esc(fmtPhone(ct.phone)||ct.phone)+'</a>':' '+esc(ct.phone)):'')+'</div>':'')
       +(m.notes?'<div class="notes">'+esc(m.notes)+'</div>':'')
       +(m.files.length?'<ul>'+m.files.map(function(f){
           return '<li><span class="k">'+(f.kind==='file'?'파일':'링크')+'</span>'
