@@ -301,7 +301,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       </div>
       <div class="g2" id="bizRow">
         <div class="field"><label>상호</label><input id="pBizName" maxlength="60"></div>
-        <div class="field"><label>사업자등록번호</label><input id="pBizNo" inputmode="numeric" maxlength="12" placeholder="000-00-00000"></div>
+        <div class="field"><label>사업자등록번호</label><input id="pBizNo" data-bizno inputmode="numeric" maxlength="12" placeholder="000-00-00000"></div>
       </div>
       <div class="g3">
         <div class="field"><label>은행</label><input id="pBank" maxlength="20" placeholder="예: 국민"></div>
@@ -383,6 +383,13 @@ function fmtPhone(v){
 document.addEventListener('input', function(ev){
   var t=ev.target; if (!t || !t.matches || !t.matches('input[type=tel],input[data-phone]')) return;
   var f=fmtPhone(t.value); if (f!==t.value){ t.value=f; try{ t.setSelectionRange(f.length,f.length); }catch(_){} }
+});
+
+/* 사업자등록번호 자동 하이픈 (1234567890 → 123-45-67890) */
+function fmtBizNo(v){ var d=String(v||'').replace(/\D/g,'').slice(0,10); if(d.length<=3) return d; if(d.length<=5) return d.slice(0,3)+'-'+d.slice(3); return d.slice(0,3)+'-'+d.slice(3,5)+'-'+d.slice(5); }
+document.addEventListener('input', function(ev){
+  var t=ev.target; if (!t || !t.matches || !t.matches('input[data-bizno]')) return;
+  var f=fmtBizNo(t.value); if (f!==t.value){ t.value=f; try{ t.setSelectionRange(f.length,f.length); }catch(_){} }
 });
 
 /* ── 인증 ───────────────────────────────────────────── */
@@ -577,7 +584,7 @@ function fillProfile(){
   var m=S.member||{}, meta=(S.user&&S.user.user_metadata)||{}, ln='';
   $('pName').value=m.name||meta.name||ln||''; $('pPhone').value=fmtPhone(m.phone)||m.phone||''; $('pSpec').value=m.specialty||''; $('pCareer').value=m.career||'';
   document.querySelectorAll('input[name=pBiz]').forEach(function(x){ x.checked = (x.value==='1') === !!m.is_business; });
-  $('pBizName').value=m.biz_name||''; $('pBizNo').value=m.biz_no||'';
+  $('pBizName').value=m.biz_name||''; $('pBizNo').value=fmtBizNo(m.biz_no)||m.biz_no||'';
   $('pNotify').checked = m.notify_email!==false;
   $('pBank').value=m.bank_name||''; $('pAcct').value=m.bank_account||''; $('pHolder').value=m.bank_holder||'';
   $('profBtn').textContent = S.member ? '저장' : '등록하고 승인 요청';
