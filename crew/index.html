@@ -125,6 +125,9 @@ a.btn{text-decoration:none}
 .cal .ev.tn{border-style:dashed}.cal .ev.cf.tn{background:#fff;color:var(--navy);border:1px dashed var(--navy)}
 .mat{margin-top:14px;border:1px solid #B8CDEA;border-radius:4px;background:#F6F9FE;padding:12px 14px}
 .mat .hd{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--blue-deep);margin-bottom:8px}
+.mat .contact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid #D5E2F4}
+.mat .contact .k{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line2);border-radius:2px;padding:1px 5px}
+.mat .contact a{color:var(--blue-deep);font-weight:700;font-family:var(--mono);text-underline-offset:3px}
 .mat .notes{font-size:13.5px;white-space:pre-wrap;margin-bottom:10px}
 .mat ul{list-style:none;display:flex;flex-direction:column;gap:6px}
 .mat li{display:flex;align-items:center;gap:10px;font-size:14px}
@@ -597,11 +600,12 @@ var MAT={};
 async function loadMaterials(pid){
   if (MAT[pid]) return MAT[pid];
   var r=await Promise.all([
-    sb.from('crew_project_private').select('notes').eq('project_id', pid).maybeSingle(),
+    sb.from('crew_project_private').select('notes,contact_name,contact_title,contact_phone').eq('project_id', pid).maybeSingle(),
     sb.from('crew_project_files').select('id,kind,title,url,storage_path,size_bytes').eq('project_id', pid).order('sort').order('created_at')
   ]);
   if (r[0].error || r[1].error) return { error:(r[0].error||r[1].error) };
-  MAT[pid]={ notes:(r[0].data&&r[0].data.notes)||'', files:r[1].data||[] };
+  var d0=r[0].data||{};
+  MAT[pid]={ notes:d0.notes||'', contact:{ name:d0.contact_name||'', title:d0.contact_title||'', phone:d0.contact_phone||'' }, files:r[1].data||[] };
   return MAT[pid];
 }
 function sizeStr(b){ if(!b) return ''; return b>=1048576 ? (b/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(b/1024))+'KB'; }
@@ -611,8 +615,12 @@ async function fillMaterials(){
     var box=boxes[i], pid=box.id.slice(4), m=await loadMaterials(pid);
     if (!document.body.contains(box)) continue;
     if (m.error){ box.innerHTML='<div class="hd">확정자 전용 자료</div><p class="meta">자료를 불러오지 못했습니다. 새로고침해 주세요.</p>'; continue; }
-    if (!m.notes && !m.files.length){ box.innerHTML='<div class="hd">확정자 전용 자료</div><p class="meta">아직 올라온 자료가 없습니다. 큐시트 등이 올라오면 여기에 표시됩니다.</p>'; continue; }
+    var ct=m.contact||{}, hasC=!!(ct.name||ct.phone);
+    if (!m.notes && !m.files.length && !hasC){ box.innerHTML='<div class="hd">확정자 전용 자료</div><p class="meta">아직 올라온 자료가 없습니다. 큐시트 등이 올라오면 여기에 표시됩니다.</p>'; continue; }
+    var tel=(ct.phone||'').replace(/[^0-9+]/g,'');
     box.innerHTML='<div class="hd">확정자 전용 자료</div>'
+      +(hasC?'<div class="contact"><span class="k">현장 담당자</span><b>'+esc(ct.name||'')+'</b>'+(ct.title?' <span class="meta">'+esc(ct.title)+'</span>':'')
+        +(ct.phone?(tel?' <a href="tel:'+esc(tel)+'">'+esc(ct.phone)+'</a>':' '+esc(ct.phone)):'')+'</div>':'')
       +(m.notes?'<div class="notes">'+esc(m.notes)+'</div>':'')
       +(m.files.length?'<ul>'+m.files.map(function(f){
           return '<li><span class="k">'+(f.kind==='file'?'파일':'링크')+'</span>'
