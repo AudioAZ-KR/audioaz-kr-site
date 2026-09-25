@@ -269,6 +269,11 @@ footer a{text-decoration:underline;text-underline-offset:3px}
   </section>
 
   <!-- 승인 대기 -->
+  <!-- 행사 전용 페이지 (내 일정에서 행사를 누르면) -->
+  <section id="vEvent" class="hide">
+    <p style="margin:0 0 12px"><button type="button" class="lnk" onclick="closeEvent()">← 내 일정으로</button></p>
+    <div id="eventBody"></div>
+  </section>
   <div id="vPending" class="notice hide">
     <div><b>참여 요청을 확인하고 있습니다</b><p>오디오에이지가 승인하면 메일로 알려 드리고, 이 페이지에서 프로젝트 목록이 열립니다. 그동안 아래 정보를 채워 두면 섭외에 도움이 됩니다.</p></div>
   </div>
@@ -521,10 +526,11 @@ async function doMagic(ev){
 async function logout(){ await sb.auth.signOut({ scope:'local' }); location.href=HERE; }
 
 function views(v){
-  ['vLoad','vAuth','vPending','vInactive','vApp','vProfile','profIntro','vJoin','vNewPw'].forEach(function(id){ show(id,false); });
+  ['vLoad','vAuth','vPending','vInactive','vApp','vProfile','profIntro','vJoin','vNewPw','vEvent'].forEach(function(id){ show(id,false); });
   show('me', !!S.user && v!=='auth');
   if (v==='load') show('vLoad',true);
   else if (v==='newpw') show('vNewPw',true);
+  else if (v==='event') show('vEvent',true);
   else if (v==='auth') show('vAuth',true);
   else if (v==='join'){ show('vJoin',true); $('jName').value=$('jName').value||((S.user&&S.user.user_metadata&&S.user.user_metadata.name)||''); $('jWho').textContent=(S.user&&S.user.email)||''; }
   else if (v==='pending'){ show('vPending',true); show('vProfile',true); loadDocs(); }
@@ -701,8 +707,12 @@ var OPEN={};   // 펼친 카드 (다시 그려도 유지)
 function renderProjects(){
   var list=openProjects();
   if (!list.length){ $('projList').innerHTML='<div class="empty">지금 모집 중인 프로젝트가 없습니다.<br>새 프로젝트가 올라오면 여기에 표시됩니다.</div>'; return; }
-  $('projList').innerHTML=list.map(function(p){
-    var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open', on=!!OPEN[p.id];
+  $('projList').innerHTML=list.map(function(p){ return projArticle(p,false); }).join('');
+  fillMaterials();
+}
+function mapHref(p){ if(p.map_url){ var m=String(p.map_url).match(/https?:\/\/[^\s]+/); return m?m[0]:'https://'+p.map_url; } return p.venue ? 'https://map.naver.com/p/search/'+encodeURIComponent(p.venue) : null; }
+function projArticle(p, force){
+    var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open', on=force||!!OPEN[p.id], mh=mapHref(p);
     var md=function(d){ return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); };
     var e2=n>1?pd(p.date_end):null;
     var state = a ? '<span class="led '+APP[a.status][0]+'"><i></i>'+APP[a.status][1]+'</span>' : (open ? '' : '<span class="led d"><i></i>'+(p.auto_closed?'정원 마감':'모집 마감')+'</span>');
@@ -722,7 +732,7 @@ function renderProjects(){
       +(p.venue?'<dt>장소</dt><dd>'+esc(p.venue)+'</dd>':'')
       +(p.roles?'<dt>모집</dt><dd>'+esc(p.roles)+(p.headcount?' · '+p.headcount+'명':'')+'</dd>':(p.headcount?'<dt>모집</dt><dd>'+p.headcount+'명</dd>':''))
       +'</dl>'
-      +'<div class="act"><button class="btn out sm'+(on?' open':'')+'" onclick="toggleMore(\''+p.id+'\')">'+(on?'접기':'내용보기')+'<span class="chev">▾</span></button></div>'
+      +'<div class="act" style="display:flex;gap:8px;flex-wrap:wrap">'+(force?'':'<button class="btn out sm'+(on?' open':'')+'" onclick="toggleMore(\''+p.id+'\')">'+(on?'접기':'내용보기')+'<span class="chev">▾</span></button>')+(mh?'<a class="btn out sm" href="'+esc(mh)+'" target="_blank" rel="noopener" style="text-decoration:none">지도 보기</a>':'')+'</div>'
       +'<div class="more'+(on?' on':'')+'" id="mo-'+p.id+'">'
       +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'<p class="meta">상세 내용이 없습니다.</p>')
       +'<dl style="margin-top:12px"><dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
@@ -734,9 +744,9 @@ function renderProjects(){
       +'<div class="field"><label>남길 말 (선택)</label><input id="apN-'+p.id+'" maxlength="300" placeholder="가능 시간, 참고 사항 등" value="'+esc(a&&a.note||'')+'"></div></div>'
       +'<div style="display:flex;gap:8px"><button class="btn pri sm" onclick="apply(\''+p.id+'\')">참여 신청 보내기</button><button class="btn out sm" onclick="toggleApply(\''+p.id+'\')">닫기</button></div></div>'
       +'</div></div></article>';
-  }).join('');
-  fillMaterials();
 }
+function openEvent(id){ var p=S.projects.filter(function(x){ return x.id===id; })[0]; if(!p) return; S.eventPid=id; views('event'); $('eventBody').innerHTML=projArticle(p,true); fillMaterials(); window.scrollTo(0,0); }
+function closeEvent(){ S.eventPid=null; views('app'); setTab('mine'); }
 function toggleMore(id){ OPEN[id]=!OPEN[id]; renderProjects(); if (OPEN[id]){ var el=$('pj-'+id); if (el && el.getBoundingClientRect().top<0) el.scrollIntoView({block:'start'}); } }
 /* ── 확정자 전용 자료 — 서버(RLS)가 확정된 활동 감독에게만 내준다. 파일은 2분짜리 서명 링크로 받는다. ── */
 var MAT={};
@@ -862,7 +872,7 @@ function renderMine(){
   var other=items.filter(function(x){ return x.a.status==='declined' || (x.a.status==='cancelled' && (x.p.date_end||x.p.date_start)>=t); });
   function rows(arr, cancel){
     return arr.map(function(x){ var p=x.p, a=x.a, cx=p.status==='cancelled', st=cx?['r','행사 취소']:APP[a.status], canC = !cx && cancel && a.status==='applied' && p.status==='open';
-      return '<tr'+(cx?' class="cx"':'')+'><td class="dt">'+esc(dLabel(p))+'</td><td><b>'+esc(p.title)+'</b>'+(p.is_tentative&&!cx?' <span class="led a" style="margin-left:4px"><i></i>예정</span>':'')+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
+      return '<tr'+(cx?' class="cx"':'')+'><td class="dt">'+esc(dLabel(p))+'</td><td><b><a href="#" onclick="openEvent(\''+p.id+'\');return false;">'+esc(p.title)+'</a></b>'+(p.is_tentative&&!cx?' <span class="led a" style="margin-left:4px"><i></i>예정</span>':'')+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
         +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
         +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>':'')+(!cx&&a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(!cx&&a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
         +(a.status==='confirmed'?'<tr class="matrow" id="mr-'+p.id+'" style="display:none"><td colspan="6" class="full"><div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div></td></tr>':''); }).join('');
