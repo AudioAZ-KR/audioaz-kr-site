@@ -226,16 +226,11 @@ footer a{text-decoration:underline;text-underline-offset:3px}
         <button class="btn pri full" type="submit">비밀번호 재설정 메일 받기</button>
         <p class="meta" style="margin-top:10px">메일의 링크를 누르면 새 비밀번호를 정하는 화면이 열립니다. 이메일 링크나 패스키로만 들어오던 계정도 여기서 비밀번호를 만들 수 있습니다. <button type="button" class="lnk" onclick="authMode('login')">로그인으로</button></p>
       </form>
-      <form id="fSignup" class="hide" onsubmit="doSignup(event)">
-        <div class="field"><label>이름</label><input id="sName" autocomplete="name" required maxlength="40"></div>
-        <div class="field"><label>연락처</label><input id="sPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000"></div>
-        <div class="field"><label>이메일</label><input type="email" id="sEmail" autocomplete="email" required></div>
-        <div class="field"><label>비밀번호 (8자 이상)</label><input type="password" id="sPw" autocomplete="new-password" required minlength="8"></div>
-        <div class="field"><label>비밀번호 확인</label><input type="password" id="sPw2" autocomplete="new-password" required minlength="8"></div>
-        <div class="field"><label>초대 코드 (선택)</label><input id="sCode" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
-        <button class="btn pri full" type="submit">가입하기</button>
-        <p class="meta" style="margin-top:12px">가입 확인 메일의 링크를 누르면 가입이 끝납니다. 초대 코드가 없으면 비워 두세요. 가입 후 관리자에게 초대 코드를 요청할 수 있습니다.</p>
-      </form>
+      <div id="fSignup" class="hide">
+        <p class="sub" style="margin-top:0">회원가입은 <b>AudioAZ 통합 회원가입</b>(audioazpro.com)에서 합니다. 이메일 인증이 끝나면 이 크루 페이지로 바로 돌아오고, 그때 초대 코드를 넣거나 관리자에게 참여를 요청하면 됩니다.</p>
+        <a class="btn pri full" href="https://audioazpro.com/portal/?tab=signup&next=crew" style="display:block;text-align:center;text-decoration:none">AudioAZ 회원가입하러 가기</a>
+        <p class="meta" style="margin-top:12px">이미 audioazpro.com 계정이 있으면 가입할 필요 없이 <button type="button" class="lnk" onclick="authMode('login')">로그인</button>하세요.</p>
+      </div>
       <div class="msg" id="authMsg"></div>
     </div>
   </section>
@@ -522,26 +517,6 @@ async function doMagic(ev){
     return msg('authMsg', errText(r.error));
   }
   msg('authMsg', email+' 로 로그인 링크를 보냈습니다. 메일의 링크를 누르면 이 페이지로 돌아옵니다. 안 보이면 스팸함도 확인해 주세요.', true);
-}
-async function doSignup(ev){
-  ev.preventDefault(); clearMsg('authMsg');
-  var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return;
-  var name=$('sName').value.trim(), email=$('sEmail').value.trim(), code=$('sCode').value.trim().toUpperCase(), pw=$('sPw').value, phone=$('sPhone').value.trim();
-  if (pw!==$('sPw2').value) return msg('authMsg', '비밀번호가 서로 다릅니다.');
-  lockBtn(f, true, '확인 중…');
-  if (code){
-    var ck=await sb.rpc('crew_invite_check', { p_code:code });
-    if (ck.error){ lockBtn(f, false); return msg('authMsg', errText(ck.error)); }
-    if (ck.data!==true){ lockBtn(f, false); return msg('authMsg', '초대 코드가 맞지 않거나 이미 사용·만료됐습니다. 오디오에이지에 새 코드를 요청해 주세요.'); }
-    setPending({ code:code, name:name, phone:phone });
-  } else setPending(null);
-  var r=await sb.auth.signUp({ email:email, password:pw, options:{ emailRedirectTo:HERE, data:{ name:name, phone:phone, source:'crew' } } });
-  if (r.error){ lockBtn(f, false); return msg('authMsg', errText(r.error)); }
-  // 이미 있는 이메일이면 서버는 identities 가 빈 가짜 사용자를 돌려준다(가입 여부를 숨기려고)
-  if (r.data && r.data.user && r.data.user.identities && r.data.user.identities.length===0){ lockBtn(f, false); setPending(null); return msg('authMsg', '이미 가입된 이메일입니다. [로그인]으로 들어오거나 [비밀번호 찾기]를 눌러 주세요.'); }
-  if (r.data && r.data.session) return boot();
-  cooldown(f, 60);
-  msg('authMsg', email+' 로 가입 확인 메일을 보냈습니다. 메일의 링크를 누르면 가입이 끝나고'+(code?' 바로 크루로 합류합니다.':' 초대 코드를 넣거나 관리자에게 요청할 수 있습니다.')+' 안 보이면 스팸함도 확인해 주세요.', true);
 }
 async function logout(){ await sb.auth.signOut({ scope:'local' }); location.href=HERE; }
 
