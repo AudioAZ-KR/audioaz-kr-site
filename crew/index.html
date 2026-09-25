@@ -159,6 +159,7 @@ a.btn{text-decoration:none}
 .cal .ev{display:block;margin-top:2px;padding:1px 4px;border-radius:2px;font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal .ev.cf{background:var(--navy);color:#fff}
 .cal .ev.ap{border:1px solid var(--blue);color:var(--blue-deep);background:#fff}
+.cal .ev.op{border:1px solid var(--dim,#5B6B85);color:var(--dim,#5B6B85);background:#fff;cursor:pointer}.cal .c.sel{background:rgba(24,119,242,.10)}.cal .c.pick{cursor:pointer}
 .cal .lg{display:flex;gap:16px;padding:8px 12px;font-size:11.5px;color:var(--dim)}
 .cal .lg span{display:inline-flex;align-items:center;gap:6px}
 .cal .lg i{width:12px;height:8px;border-radius:1px;display:inline-block}
@@ -294,6 +295,11 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     </div>
 
     <div id="tProjects">
+      <div class="tabs" id="projViewTabs" style="margin-bottom:14px">
+        <button type="button" data-v="cal" onclick="setProjView('cal')">캘린더로 보기</button>
+        <button type="button" class="on" data-v="list" onclick="setProjView('list')">프로젝트별 보기</button>
+      </div>
+      <div id="projCalWrap" class="hide"><div class="cal" id="projCal"></div><div class="sec" id="projDayHd" style="margin-top:16px">날짜를 고르세요</div><div class="plist" id="projDayList"></div></div>
       <div class="plist" id="projList"></div>
     </div>
 
@@ -709,6 +715,8 @@ function renderProjects(){
   if (!list.length){ $('projList').innerHTML='<div class="empty">지금 모집 중인 프로젝트가 없습니다.<br>새 프로젝트가 올라오면 여기에 표시됩니다.</div>'; return; }
   $('projList').innerHTML=list.map(function(p){ return projArticle(p,false); }).join('');
   fillMaterials();
+  var pv; try{ pv=localStorage.getItem('az_crew_projview'); }catch(_){}
+  if (pv==='cal' || S.projView==='cal') setProjView('cal');
 }
 function mapHref(p){ if(p.map_url){ var m=String(p.map_url).match(/https?:\/\/[^\s]+/); return m?m[0]:'https://'+p.map_url; } return p.venue ? 'https://map.naver.com/p/search/'+encodeURIComponent(p.venue) : null; }
 function projArticle(p, force){
@@ -747,6 +755,35 @@ function projArticle(p, force){
 }
 function openEvent(id){ var p=S.projects.filter(function(x){ return x.id===id; })[0]; if(!p) return; S.eventPid=id; views('event'); $('eventBody').innerHTML=projArticle(p,true); fillMaterials(); window.scrollTo(0,0); }
 function closeEvent(){ S.eventPid=null; views('app'); setTab('mine'); }
+function setProjView(v){ S.projView=v; try{ localStorage.setItem('az_crew_projview', v); }catch(_){} $('projViewTabs').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b.dataset.v===v); }); show('projCalWrap', v==='cal'); show('projList', v!=='cal'); if (v==='cal') renderProjCal(); }
+function pkey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+/* 캘린더로 보기 — 오디오에이지 행사 전체. 날짜를 누르면 그날 행사, 행사를 누르면 전용 페이지(참여하기 포함) */
+function renderProjCal(){
+  if (!S.pcY){ var d0=new Date(); S.pcY=d0.getFullYear(); S.pcM=d0.getMonth(); S.pcSel=today(); }
+  var y=S.pcY, m=S.pcM, first=new Date(y,m,1), start=new Date(y,m,1-first.getDay()), t=today();
+  var ev={}; S.projects.filter(function(p){ return p.status==='open'||p.status==='closed'||(p.status==='cancelled'&&S.apps[p.id]); }).forEach(function(p){
+    var sp=span(p), d0=pd(p.date_start), d1=pd(sp.end), a=S.apps[p.id];
+    for (var k=new Date(sp.s); k<=sp.e; k.setDate(k.getDate()+1)){ (ev[pkey(k)]=ev[pkey(k)]||[]).push({p:p,a:a,mv:(k<d0||k>d1),cx:p.status==='cancelled'}); } });
+  var h='<div class="hd"><button type="button" onclick="pcMove(-1)" aria-label="이전 달">‹</button><b>'+y+'.'+String(m+1).padStart(2,'0')+'</b><button type="button" onclick="pcMove(1)" aria-label="다음 달">›</button></div><div class="gr">';
+  WD.forEach(function(w){ h+='<div class="wd">'+w+'</div>'; });
+  for (var i=0;i<42;i++){
+    var d=new Date(start); d.setDate(start.getDate()+i);
+    if (i>=35 && d.getMonth()!==m) break;
+    var key=pkey(d);
+    h+='<div class="c pick'+(d.getMonth()!==m?' o':'')+(key===t?' td':'')+(key===S.pcSel?' sel':'')+'" onclick="pcPick(\''+key+'\')"><span class="dn">'+d.getDate()+'</span>'
+      +(ev[key]||[]).slice(0,3).map(function(x){ var cls=x.cx?'cx':(x.a&&x.a.status==='confirmed'?'cf':(x.a&&(x.a.status==='applied')?'ap':'op')); return '<span class="ev '+cls+(x.p.is_tentative?' tn':'')+(x.mv?' mv':'')+'" title="'+esc(x.p.title)+'">'+(x.mv?'이동·':'')+esc(x.p.title)+'</span>'; }).join('')
+      +((ev[key]||[]).length>3?'<span class="meta" style="font-size:10px">+'+((ev[key]||[]).length-3)+'</span>':'')+'</div>';
+  }
+  h+='</div><div class="lg"><span><i style="border:1px solid var(--dim,#5B6B85)"></i>모집 중</span><span><i style="background:var(--navy)"></i>참여 확정</span><span><i style="border:1px solid var(--blue)"></i>신청 중</span><span><i style="border:1px dashed var(--navy)"></i>예정(임시)</span></div>';
+  $('projCal').innerHTML=h;
+  var day=(ev[S.pcSel]||[]).filter(function(x){ return !x.mv; });
+  $('projDayHd').textContent = S.pcSel ? dLabel({date_start:S.pcSel})+' 행사' : '날짜를 고르세요';
+  $('projDayList').innerHTML = day.length ? day.map(function(x){ var p=x.p, a=x.a, st=x.cx?'<span class="led r"><i></i>행사 취소</span>':(a&&a.status!=='cancelled'?'<span class="led '+APP[a.status][0]+'"><i></i>'+APP[a.status][1]+'</span>':(p.status==='open'?'<span class="led g"><i></i>모집 중</span>':'<span class="led d"><i></i>'+(p.auto_closed?'정원 마감':'모집 마감')+'</span>'));
+      return '<article class="proj" style="cursor:pointer" onclick="openEvent(\''+p.id+'\')"><div class="b"><div class="t"><h3>'+esc(p.title)+'</h3>'+st+'</div><p class="meta">'+esc([p.call_time?'콜 '+p.call_time:'',p.venue||'',p.roles||''].filter(Boolean).join(' · '))+'</p><p class="meta" style="color:var(--blue-deep);font-weight:700">'+(p.status==='open'&&!a?'자세히 보고 참여하기 ›':'자세히 보기 ›')+'</p></div></article>'; }).join('')
+    : '<p class="meta">이날은 행사가 없습니다.</p>';
+}
+function pcMove(k){ S.pcM+=k; if (S.pcM<0){ S.pcM=11; S.pcY--; } if (S.pcM>11){ S.pcM=0; S.pcY++; } renderProjCal(); }
+function pcPick(key){ S.pcSel=key; renderProjCal(); }
 function toggleMore(id){ OPEN[id]=!OPEN[id]; renderProjects(); if (OPEN[id]){ var el=$('pj-'+id); if (el && el.getBoundingClientRect().top<0) el.scrollIntoView({block:'start'}); } }
 /* ── 확정자 전용 자료 — 서버(RLS)가 확정된 활동 감독에게만 내준다. 파일은 2분짜리 서명 링크로 받는다. ── */
 var MAT={};
