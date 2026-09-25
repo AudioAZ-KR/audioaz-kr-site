@@ -678,6 +678,8 @@ async function loadData(){
   if (r[0].error) { toast(errText(r[0].error)); }
   S.projects=r[0].data||[];
   S.apps={}; (r[1].data||[]).forEach(function(a){ S.apps[a.project_id]=a; });
+  // 고스트(관리자 확인용) 계정: 모든 공개 프로젝트에 '참여 확정'으로 보인다 — 실제 신청은 없다
+  if (S.member && S.member.is_ghost) S.projects.forEach(function(p){ S.apps[p.id]={ id:'ghost-'+p.id, project_id:p.id, user_id:S.user.id, status:'confirmed' }; });
   S.counts={}; (r[2].data||[]).forEach(function(c){ S.counts[c.project_id]=c; });
 }
 function openProjects(){ var t=today(); return S.projects.filter(function(p){ return (p.status==='open'||p.status==='closed') && (p.date_end||p.date_start)>=t; }); }
@@ -725,7 +727,7 @@ function renderProjects(){
       +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'<p class="meta">상세 내용이 없습니다.</p>')
       +'<dl style="margin-top:12px"><dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
       +(a&&a.note&&a.status!=='cancelled'?'<p class="meta" style="margin-top:8px">내가 남긴 말: '+esc(a.note)+'</p>':'')
-      +((a&&a.status==='confirmed')||(S.member&&S.member.is_ghost)?'<div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div>':'')
+      +(a&&a.status==='confirmed'?'<div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div>':'')
       +(btn?'<div class="act">'+btn+'</div>':'')
       +'<div class="apply" id="ap-'+p.id+'"><div class="g2">'
       +'<div class="field"><label>희망 포지션</label><input id="apR-'+p.id+'" maxlength="40" placeholder="'+esc(p.roles?'예: '+p.roles.split(/[,·/]/)[0].trim():'예: FOH')+'" value="'+esc(a&&a.role||'')+'"></div>'
