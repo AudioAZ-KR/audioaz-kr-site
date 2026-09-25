@@ -571,7 +571,7 @@ async function boot(){
     }
   }
   var u=await sb.auth.getUser();
-  if (u.error || !u.data || !u.data.user){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){} S.user=null; return views('auth'); }
+  if (u.error || !u.data || !u.data.user){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){} S.user=null; views('auth'); if (/signup/.test(location.hash)){ history.replaceState(null,'',HERE); authMode('signup'); } return; }
   S.user=u.data.user;
   if (S.recovery || /reset/.test(location.hash)) { history.replaceState(null,'',HERE); S.recovery=true; return views('newpw'); }
   var r=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle();
