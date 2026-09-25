@@ -200,34 +200,56 @@ footer a{text-decoration:underline;text-underline-offset:3px}
 
   <!-- 로그인·가입 -->
   <section id="vAuth" class="auth hide">
-    <div class="h">오디오에이지 감독 전용</div>
-    <p class="sub">오디오에이지와 함께하는 프리랜서 감독님들이 프로젝트 일정을 보고 참여 신청을 남기는 곳입니다. 가입은 오디오에이지가 보낸 <b>초대 코드</b>가 있어야 하고, 로그인은 <b>패스키</b>(지문·Face ID)로 합니다.</p>
+    <div class="h" id="authTitle">로그인</div>
+    <p class="sub" id="authSub">오디오에이지 크루 전용입니다. AudioAZ 통합 회원이라 audioazpro.com 계정으로도 로그인됩니다.</p>
     <div class="tabs" id="authTabs">
       <button type="button" class="on" data-a="login">로그인</button>
-      <button type="button" data-a="signup">초대 코드로 가입</button>
+      <button type="button" data-a="signup">회원가입</button>
     </div>
     <div class="box">
       <div id="fLogin">
-        <button class="btn pri full" type="button" onclick="goPasskey()">패스키로 로그인</button>
-        <p class="meta" style="margin-top:10px">지문·Face ID 로 바로 들어옵니다. 비밀번호는 쓰지 않습니다.</p>
-        <div class="sec" style="margin-top:22px">패스키가 없는 기기라면</div>
-        <form onsubmit="doMagic(event)">
-          <div class="field"><label>가입한 이메일</label><input type="email" id="lEmail" autocomplete="email" required></div>
-          <button class="btn out full" type="submit">이메일로 로그인 링크 받기</button>
+        <form onsubmit="doPassword(event)">
+          <div class="field"><label>이메일</label><input type="email" id="lEmail" autocomplete="username" required></div>
+          <div class="field"><label>비밀번호</label><input type="password" id="lPw" autocomplete="current-password" required minlength="6"></div>
+          <button class="btn pri full" type="submit">로그인</button>
         </form>
-        <p class="meta" style="margin-top:10px">메일의 링크를 누르면 로그인되고, 이 기기에 패스키를 등록할 수 있습니다.</p>
-        <p class="meta" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">AudioAZ 통합 회원입니다. audioazpro.com 계정이 있으면 같은 계정으로 로그인한 뒤 초대 코드만 입력하면 됩니다.</p>
+        <button class="btn out full" type="button" style="margin-top:10px" onclick="goPasskey()">패스키로 로그인 (지문·Face ID)</button>
+        <p class="meta" style="margin-top:12px"><button type="button" class="lnk" onclick="authMode('reset')">비밀번호 찾기</button> · <button type="button" class="lnk" onclick="authMode('magic')">이메일 링크로 로그인</button></p>
       </div>
+      <form id="fMagic" class="hide" onsubmit="doMagic(event)">
+        <div class="field"><label>가입한 이메일</label><input type="email" id="mEmail" autocomplete="email" required></div>
+        <button class="btn pri full" type="submit">이메일로 로그인 링크 받기</button>
+        <p class="meta" style="margin-top:10px">메일의 링크를 누르면 로그인됩니다. <button type="button" class="lnk" onclick="authMode('login')">비밀번호로 로그인</button></p>
+      </form>
+      <form id="fReset" class="hide" onsubmit="doReset(event)">
+        <div class="field"><label>가입한 이메일</label><input type="email" id="rEmail" autocomplete="email" required></div>
+        <button class="btn pri full" type="submit">비밀번호 재설정 메일 받기</button>
+        <p class="meta" style="margin-top:10px">메일의 링크를 누르면 새 비밀번호를 정하는 화면이 열립니다. 이메일 링크나 패스키로만 들어오던 계정도 여기서 비밀번호를 만들 수 있습니다. <button type="button" class="lnk" onclick="authMode('login')">로그인으로</button></p>
+      </form>
       <form id="fSignup" class="hide" onsubmit="doSignup(event)">
-        <div class="field"><label>초대 코드</label><input id="sCode" required minlength="1" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
         <div class="field"><label>이름</label><input id="sName" autocomplete="name" required maxlength="40"></div>
         <div class="field"><label>연락처</label><input id="sPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000"></div>
         <div class="field"><label>이메일</label><input type="email" id="sEmail" autocomplete="email" required></div>
-        <button class="btn pri full" type="submit">가입 메일 받기</button>
-        <p class="meta" style="margin-top:12px">메일의 링크를 누르면 이 페이지로 돌아와 바로 크루로 합류하고, 패스키를 등록합니다. 비밀번호는 만들지 않습니다.</p>
+        <div class="field"><label>비밀번호 (8자 이상)</label><input type="password" id="sPw" autocomplete="new-password" required minlength="8"></div>
+        <div class="field"><label>비밀번호 확인</label><input type="password" id="sPw2" autocomplete="new-password" required minlength="8"></div>
+        <div class="field"><label>초대 코드 (선택)</label><input id="sCode" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
+        <button class="btn pri full" type="submit">가입하기</button>
+        <p class="meta" style="margin-top:12px">가입 확인 메일의 링크를 누르면 가입이 끝납니다. 초대 코드가 없으면 비워 두세요. 가입 후 관리자에게 초대 코드를 요청할 수 있습니다.</p>
       </form>
       <div class="msg" id="authMsg"></div>
     </div>
+  </section>
+
+  <!-- 비밀번호 재설정 링크로 돌아온 경우 -->
+  <section id="vNewPw" class="auth hide">
+    <div class="h">새 비밀번호</div>
+    <p class="sub">새 비밀번호를 정하면 바로 로그인됩니다. 이 비밀번호로 앱과 audioazpro.com 에도 로그인합니다.</p>
+    <form class="box" onsubmit="doNewPw(event)">
+      <div class="field"><label>새 비밀번호 (8자 이상)</label><input type="password" id="nPw" autocomplete="new-password" required minlength="8"></div>
+      <div class="field"><label>새 비밀번호 확인</label><input type="password" id="nPw2" autocomplete="new-password" required minlength="8"></div>
+      <button class="btn pri full" type="submit">비밀번호 바꾸고 로그인</button>
+      <div class="msg" id="newPwMsg"></div>
+    </form>
   </section>
 
   <!-- 초대 코드로 합류 (로그인은 됐지만 아직 크루가 아닌 계정) -->
@@ -318,6 +340,14 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       <button class="btn pri" type="submit" id="profBtn">저장</button>
       <div class="msg" id="profMsg"></div>
     </form>
+    <form class="box" style="margin-top:14px" onsubmit="doChangePw(event)">
+      <div class="h" style="font-size:17px">비밀번호 변경</div>
+      <p class="sub" style="margin-bottom:14px">이메일 링크나 패스키로만 들어오던 분도 여기서 비밀번호를 만들 수 있습니다. 앱과 audioazpro.com 에 같이 쓰입니다.</p>
+      <div class="field"><label>새 비밀번호 (8자 이상)</label><input type="password" id="cPw" autocomplete="new-password" required minlength="8"></div>
+      <div class="field"><label>새 비밀번호 확인</label><input type="password" id="cPw2" autocomplete="new-password" required minlength="8"></div>
+      <button class="btn out" type="submit">비밀번호 바꾸기</button>
+      <div class="msg" id="cPwMsg"></div>
+    </form>
     <div class="box" id="docsBox" style="margin-top:14px">
       <div class="h" style="font-size:17px">제출 서류</div>
       <p class="sub" style="margin-bottom:14px">현장 투입·정산에 필요한 서류를 올려 주세요. <b>본인과 오디오에이지 관리자만</b> 볼 수 있고, 다른 감독은 볼 수 없습니다. 사진(JPG·PNG·HEIC) 또는 PDF, 파일당 10MB까지.</p>
@@ -398,11 +428,54 @@ document.addEventListener('input', function(ev){
 });
 
 /* ── 인증 ───────────────────────────────────────────── */
-$('authTabs').addEventListener('click', function(ev){
-  var b=ev.target.closest('button[data-a]'); if(!b) return;
-  this.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x===b); });
-  show('fLogin', b.dataset.a==='login'); show('fSignup', b.dataset.a==='signup'); clearMsg('authMsg');
-});
+function authMode(m){
+  ['fLogin','fMagic','fReset','fSignup'].forEach(function(id){ show(id,false); });
+  show({login:'fLogin',magic:'fMagic',reset:'fReset',signup:'fSignup'}[m]||'fLogin', true);
+  $('authTabs').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.a===(m==='signup'?'signup':'login')); });
+  $('authTitle').textContent = m==='signup' ? '회원가입' : (m==='reset' ? '비밀번호 찾기' : '로그인');
+  clearMsg('authMsg');
+}
+$('authTabs').addEventListener('click', function(ev){ var b=ev.target.closest('button[data-a]'); if(b) authMode(b.dataset.a); });
+async function doPassword(ev){
+  ev.preventDefault(); clearMsg('authMsg');
+  var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return; lockBtn(f, true, '로그인 중…');
+  var r=await sb.auth.signInWithPassword({ email:$('lEmail').value.trim(), password:$('lPw').value });
+  lockBtn(f, false);
+  if (r.error){
+    if (/invalid login credentials/i.test(r.error.message)) return msg('authMsg', '이메일 또는 비밀번호가 맞지 않습니다. 비밀번호를 모르면 [비밀번호 찾기]를 눌러 주세요.');
+    if (/email not confirmed/i.test(r.error.message)) return msg('authMsg', '가입 확인 메일의 링크를 아직 누르지 않았습니다. 메일함(스팸함 포함)을 확인해 주세요.');
+    return msg('authMsg', errText(r.error));
+  }
+  boot();
+}
+async function doReset(ev){
+  ev.preventDefault(); clearMsg('authMsg');
+  var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return; lockBtn(f, true, '보내는 중…');
+  var r=await sb.auth.resetPasswordForEmail($('rEmail').value.trim(), { redirectTo: HERE+'#reset' });
+  if (r.error){ lockBtn(f, false); return msg('authMsg', errText(r.error)); }
+  cooldown(f, 60);
+  msg('authMsg', '재설정 메일을 보냈습니다. 메일의 링크를 이 기기에서 누르면 새 비밀번호를 정할 수 있습니다. 안 보이면 스팸함도 확인해 주세요.', true);
+}
+async function doNewPw(ev){
+  ev.preventDefault(); clearMsg('newPwMsg');
+  var pw=$('nPw').value, pw2=$('nPw2').value;
+  if (pw!==pw2) return msg('newPwMsg', '비밀번호가 서로 다릅니다.');
+  var f=ev.target; lockBtn(f, true, '저장 중…');
+  var r=await sb.auth.updateUser({ password:pw }); lockBtn(f, false);
+  if (r.error) return msg('newPwMsg', /same_password|different/i.test(r.error.message) ? '기존과 다른 비밀번호를 넣어 주세요.' : errText(r.error));
+  S.recovery=false; toast('비밀번호를 바꿨습니다.'); boot();
+}
+async function doChangePw(ev){
+  ev.preventDefault(); clearMsg('cPwMsg');
+  var pw=$('cPw').value, pw2=$('cPw2').value;
+  if (pw!==pw2) return msg('cPwMsg', '비밀번호가 서로 다릅니다.');
+  var f=ev.target; lockBtn(f, true, '저장 중…');
+  var r=await sb.auth.updateUser({ password:pw }); lockBtn(f, false);
+  if (r.error) return msg('cPwMsg', /same_password|different/i.test(r.error.message) ? '기존과 다른 비밀번호를 넣어 주세요.' : errText(r.error));
+  $('cPw').value=''; $('cPw2').value=''; msg('cPwMsg', '비밀번호를 바꿨습니다.', true);
+}
+/* 재설정 링크로 돌아오면 supabase 가 PASSWORD_RECOVERY 이벤트를 준다 → 새 비밀번호 화면 */
+sb.auth.onAuthStateChange(function(ev){ if (ev==='PASSWORD_RECOVERY'){ S.recovery=true; views('newpw'); } });
 /* 패스키는 audioazpro.com 의 중계 페이지에서 한다(Supabase 패스키 RP ID = audioazpro.com, 관리자 콘솔과 공유).
  * 끝나면 새 세션 토큰을 #pk_at·pk_rt 로 붙여 이 페이지로 돌아온다 → boot() 가 받아서 바로 주소에서 지운다. */
 var PK = 'https://audioazpro.com/portal/crew-passkey.html';
@@ -441,7 +514,7 @@ async function doMagic(ev){
   ev.preventDefault(); clearMsg('authMsg');
   var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return;
   lockBtn(f, true, '보내는 중…');
-  var email=$('lEmail').value.trim();
+  var email=$('mEmail').value.trim();
   var r=await sb.auth.signInWithOtp({ email:email, options:{ shouldCreateUser:false, emailRedirectTo:HERE } });
   if (r.error) lockBtn(f, false); else cooldown(f, 60);
   if (r.error){
@@ -453,23 +526,30 @@ async function doMagic(ev){
 async function doSignup(ev){
   ev.preventDefault(); clearMsg('authMsg');
   var f=ev.target; if (f.querySelector('button[type=submit]').disabled) return;
+  var name=$('sName').value.trim(), email=$('sEmail').value.trim(), code=$('sCode').value.trim().toUpperCase(), pw=$('sPw').value, phone=$('sPhone').value.trim();
+  if (pw!==$('sPw2').value) return msg('authMsg', '비밀번호가 서로 다릅니다.');
   lockBtn(f, true, '확인 중…');
-  var name=$('sName').value.trim(), email=$('sEmail').value.trim(), code=$('sCode').value.trim().toUpperCase();
-  var ck=await sb.rpc('crew_invite_check', { p_code:code });
-  if (ck.error){ lockBtn(f, false); return msg('authMsg', errText(ck.error)); }
-  if (ck.data!==true){ lockBtn(f, false); return msg('authMsg', '초대 코드가 맞지 않거나 이미 사용·만료됐습니다. 오디오에이지에 새 코드를 요청해 주세요.'); }
-  setPending({ code:code, name:name, phone:$('sPhone').value.trim() });
-  var r=await sb.auth.signInWithOtp({ email:email, options:{ shouldCreateUser:true, emailRedirectTo:HERE, data:{ name:name, source:'crew' } } });
+  if (code){
+    var ck=await sb.rpc('crew_invite_check', { p_code:code });
+    if (ck.error){ lockBtn(f, false); return msg('authMsg', errText(ck.error)); }
+    if (ck.data!==true){ lockBtn(f, false); return msg('authMsg', '초대 코드가 맞지 않거나 이미 사용·만료됐습니다. 오디오에이지에 새 코드를 요청해 주세요.'); }
+    setPending({ code:code, name:name, phone:phone });
+  } else setPending(null);
+  var r=await sb.auth.signUp({ email:email, password:pw, options:{ emailRedirectTo:HERE, data:{ name:name, phone:phone, source:'crew' } } });
   if (r.error){ lockBtn(f, false); return msg('authMsg', errText(r.error)); }
+  // 이미 있는 이메일이면 서버는 identities 가 빈 가짜 사용자를 돌려준다(가입 여부를 숨기려고)
+  if (r.data && r.data.user && r.data.user.identities && r.data.user.identities.length===0){ lockBtn(f, false); setPending(null); return msg('authMsg', '이미 가입된 이메일입니다. [로그인]으로 들어오거나 [비밀번호 찾기]를 눌러 주세요.'); }
+  if (r.data && r.data.session) return boot();
   cooldown(f, 60);
-  msg('authMsg', email+' 로 가입 메일을 보냈습니다. 메일의 링크를 이 기기에서 누르면 바로 합류합니다. 안 보이면 스팸함도 확인해 주세요.', true);
+  msg('authMsg', email+' 로 가입 확인 메일을 보냈습니다. 메일의 링크를 누르면 가입이 끝나고'+(code?' 바로 크루로 합류합니다.':' 초대 코드를 넣거나 관리자에게 요청할 수 있습니다.')+' 안 보이면 스팸함도 확인해 주세요.', true);
 }
 async function logout(){ await sb.auth.signOut({ scope:'local' }); location.href=HERE; }
 
 function views(v){
-  ['vLoad','vAuth','vPending','vInactive','vApp','vProfile','profIntro','vJoin'].forEach(function(id){ show(id,false); });
+  ['vLoad','vAuth','vPending','vInactive','vApp','vProfile','profIntro','vJoin','vNewPw'].forEach(function(id){ show(id,false); });
   show('me', !!S.user && v!=='auth');
   if (v==='load') show('vLoad',true);
+  else if (v==='newpw') show('vNewPw',true);
   else if (v==='auth') show('vAuth',true);
   else if (v==='join'){ show('vJoin',true); $('jName').value=$('jName').value||((S.user&&S.user.user_metadata&&S.user.user_metadata.name)||''); $('jWho').textContent=(S.user&&S.user.email)||''; }
   else if (v==='pending'){ show('vPending',true); show('vProfile',true); loadDocs(); }
@@ -493,6 +573,7 @@ async function boot(){
   var u=await sb.auth.getUser();
   if (u.error || !u.data || !u.data.user){ try{ await sb.auth.signOut({scope:'local'}); }catch(_){} S.user=null; return views('auth'); }
   S.user=u.data.user;
+  if (S.recovery || /reset/.test(location.hash)) { history.replaceState(null,'',HERE); S.recovery=true; return views('newpw'); }
   var r=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle();
   if (r.error){ views('auth'); return msg('authMsg', errText(r.error)); }
   S.member=r.data;
