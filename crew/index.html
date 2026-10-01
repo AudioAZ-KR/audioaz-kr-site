@@ -750,7 +750,7 @@ function renderProjects(){
   var pv; try{ pv=localStorage.getItem('az_crew_projview'); }catch(_){}
   if (pv==='cal' || S.projView==='cal') setProjView('cal');
 }
-function mapHref(p){ if(p.map_url){ var m=String(p.map_url).match(/https?:\/\/[^\s]+/); return m?m[0]:'https://'+p.map_url; } return p.venue ? 'https://map.naver.com/p/search/'+encodeURIComponent(p.venue) : null; }
+function mapHref(p){ if(p.map_url){ var m=String(p.map_url).match(/https?:\/\/[^\s]+/); return m?m[0]:'https://'+p.map_url; } var k=p.address||p.venue; return k ? 'https://map.naver.com/p/search/'+encodeURIComponent(k) : null; }
 function projArticle(p, force){
     var s=pd(p.date_start), a=S.apps[p.id], c=S.counts[p.id]||{applied:0,confirmed:0}, n=nDays(p), open=p.status==='open', on=force||!!OPEN[p.id], mh=mapHref(p);
     var md=function(d){ return String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); };
@@ -771,6 +771,7 @@ function projArticle(p, force){
       +'<dl><dt>일정</dt><dd>'+esc(dLabel(p))+'</dd>'
       +(p.call_time?'<dt>콜타임</dt><dd>'+esc(p.call_time)+'</dd>':'')
       +(p.venue?'<dt>장소</dt><dd>'+esc(p.venue)+'</dd>':'')
+      +(p.address?'<dt>주소</dt><dd>'+esc(p.address)+'</dd>':'')
       +(p.roles?'<dt>모집</dt><dd>'+esc(p.roles)+(p.headcount?' · '+p.headcount+'명':'')+'</dd>':(p.headcount?'<dt>모집</dt><dd>'+p.headcount+'명</dd>':''))
       +'</dl>'
       +'<div class="act" style="display:flex;gap:8px;flex-wrap:wrap">'+(force?'':'<button class="btn out sm'+(on?' open':'')+'" onclick="toggleMore(\''+p.id+'\')">'+(on?'접기':'내용보기')+'<span class="chev">▾</span></button>')+(mh?'<a class="btn out sm" href="'+esc(mh)+'" target="_blank" rel="noopener" style="text-decoration:none">지도 보기</a>':'')+'</div>'
@@ -901,7 +902,7 @@ function googleUrl(p){
   var sp=span(p), a=S.apps[p.id]||{}, e=new Date(sp.e); e.setDate(e.getDate()+1);
   var det=[p.is_tentative?'※ 예정(임시) 일정 — 바뀌거나 취소될 수 있습니다':'', travelText(p), p.call_time?'콜타임: '+p.call_time:'', a.role?'포지션: '+a.role:'', '자료·상세: '+HERE].filter(Boolean).join('\n');
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('[AudioAZ] '+(p.is_tentative?'(예정) ':'')+p.title)
-    +'&dates='+ymd8(sp.s)+'/'+ymd8(e)+'&details='+encodeURIComponent(det)+(p.venue?'&location='+encodeURIComponent(p.venue):'');
+    +'&dates='+ymd8(sp.s)+'/'+ymd8(e)+'&details='+encodeURIComponent(det)+((p.address||p.venue)?'&location='+encodeURIComponent(p.address||p.venue):'');
 }
 function addCal(id){
   var p=null; S.projects.forEach(function(x){ if(x.id===id) p=x; }); if(!p) return;
