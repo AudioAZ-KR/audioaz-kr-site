@@ -784,7 +784,7 @@ function projArticle(p, force){
       +'<div class="more'+(on?' on':'')+'" id="mo-'+p.id+'">'
       +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'<p class="meta">상세 내용이 없습니다.</p>')
       +'<dl style="margin-top:12px"><dt>신청</dt><dd class="meta" style="font-size:12.5px">'+c.applied+'명'+(c.confirmed?' · 확정 '+c.confirmed+'명':'')+'</dd></dl>'
-      +(a&&a.note&&a.status!=='cancelled'?'<p class="meta" style="margin-top:8px">내가 남긴 말: '+esc(a.note)+'</p>':'')
+      +(a&&a.note&&a.status!=='cancelled'&&!/^관리자 (지정|초대|배정)$/.test(a.note)?'<p class="meta" style="margin-top:8px">내가 남긴 말: '+esc(a.note)+'</p>':'')
       +(a&&a.status==='confirmed'?'<div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div>':'')
       +(btn?'<div class="act">'+btn+'</div>':'')
       +'<div class="apply" id="ap-'+p.id+'"><div class="g2">'
@@ -971,7 +971,7 @@ function renderMine(){
 function toggleMat(pid){ var r=$('mr-'+pid); if(!r) return; var on=r.style.display==='none'; r.style.display=on?'':'none'; if(on) fillMaterials(); }
 function renderCal(){
   var y=S.calY, m=S.calM, first=new Date(y,m,1), start=new Date(y,m,1-first.getDay()), t=today();
-  var ev={}; myItems().forEach(function(x){ if (x.a.status!=='confirmed' && x.a.status!=='applied') return;
+  var ev={}; myItems().forEach(function(x){ if (x.a.status!=='confirmed' && x.a.status!=='applied' && x.a.status!=='invited') return;
     var sp=span(x.p), d0=pd(x.p.date_start), d1=pd(sp.end);
     for (var k=new Date(sp.s); k<=sp.e; k.setDate(k.getDate()+1)){ var key=k.getFullYear()+'-'+String(k.getMonth()+1).padStart(2,'0')+'-'+String(k.getDate()).padStart(2,'0'); (ev[key]=ev[key]||[]).push({p:x.p,a:x.a,mv:(k<d0||k>d1),cx:x.p.status==='cancelled'}); } });
   var h='<div class="hd"><button type="button" onclick="calMove(-1)" aria-label="이전 달">‹</button><b>'+y+'.'+String(m+1).padStart(2,'0')+'</b><button type="button" onclick="calMove(1)" aria-label="다음 달">›</button></div><div class="gr">';
@@ -983,7 +983,7 @@ function renderCal(){
     h+='<div class="c'+(d.getMonth()!==m?' o':'')+(key===t?' td':'')+'"><span class="dn">'+d.getDate()+'</span>'
       +(ev[key]||[]).map(function(x){ return '<span class="ev '+(x.a.status==='confirmed'?'cf':'ap')+(x.p.is_tentative?' tn':'')+(x.mv?' mv':'')+(x.cx?' cx':'')+'" title="'+esc((x.p.is_tentative?'(예정) ':'')+x.p.title)+'">'+(x.cx?'취소·':'')+(x.mv?'이동·':'')+(x.p.is_tentative&&!x.cx?'예정·':'')+esc(x.p.title)+'</span>'; }).join('')+'</div>';
   }
-  h+='</div><div class="lg"><span><i style="background:var(--navy)"></i>참여 확정</span><span><i style="border:1px solid var(--blue)"></i>신청 중</span><span><i style="border:1px dashed var(--navy)"></i>예정(임시)</span></div>';
+  h+='</div><div class="lg"><span><i style="background:var(--navy)"></i>참여 확정</span><span><i style="border:1px solid var(--blue)"></i>신청·수락 대기</span><span><i style="border:1px dashed var(--navy)"></i>예정(임시)</span></div>';
   $('cal').innerHTML=h;
 }
 function calMove(k){ S.calM+=k; if (S.calM<0){ S.calM=11; S.calY--; } if (S.calM>11){ S.calM=0; S.calY++; } renderCal(); }
