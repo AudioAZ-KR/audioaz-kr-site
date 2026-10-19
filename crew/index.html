@@ -619,7 +619,8 @@ function renderDocs(){
 /* ── 공연자 안전교육 수료증 자동 인식 (2026-10-19) — 브라우저 안에서 글자를 읽는다(PDF 글자층·사진 글자 인식). 행사 마지막 날 <= 수료일+2년 이면 통과 ── */
 var CERT_FAIL='행사일 기준으로 수료일로부터 2년이 지난 수료증입니다.\n공연자 안전교육을 다시 수료한 뒤 새 수료증을 제출해 주세요.';
 function certExp(d){ var t=pd(d); t.setFullYear(t.getFullYear()+2); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
-function certOk(p){ var d=S.member&&S.member.safety_cert_date; if(!d) return null; return (p.date_end||p.date_start) <= certExp(d); }
+function certOk(p){ if (!p || !p.requires_safety) return true;   // 수료증이 필요 없는 행사
+  var d=S.member&&S.member.safety_cert_date; if(!d) return null; return (p.date_end||p.date_start) <= certExp(d); }
 function loadScript(src){ return new Promise(function(ok, no){ var x=document.createElement('script'); x.src=src; x.onload=ok; x.onerror=no; document.head.appendChild(x); }); }
 function certDates(s){ var re=/(20\d{2})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/g, m, out=[];
   while((m=re.exec(s))){ var mo=+m[2], d=+m[3]; if(mo>=1&&mo<=12&&d>=1&&d<=31) out.push(m[1]+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0')); } return out; }
@@ -677,6 +678,7 @@ async function upCert(input, pid){
   loadDocs(); if (pid) setTab(S.tab);
 }
 function certBox(p){
+  if (!p.requires_safety) return '';
   var d=S.member&&S.member.safety_cert_date, ok=certOk(p);
   return '<div class="field"><label>공연자 안전교육 수료증</label>'
     +(d?'<p class="meta" style="margin:0 0 6px;color:'+(ok?'var(--green,#1DB46C)':'var(--red,#D63B40)')+'">'+(ok?'통과':'기간 지남')+' · 수료 '+esc(d)+' · '+certExp(d)+'까지 유효</p>'
@@ -853,6 +855,7 @@ function projArticle(p, force){
       +(p.venue?'<dt>장소</dt><dd>'+esc(p.venue)+'</dd>':'')
       +(p.address?'<dt>주소</dt><dd>'+esc(p.address)+'</dd>':'')
       +(p.roles?'<dt>모집</dt><dd>'+esc(p.roles)+(p.headcount?' · '+p.headcount+'명':'')+'</dd>':(p.headcount?'<dt>모집</dt><dd>'+p.headcount+'명</dd>':''))
+      +(p.requires_safety?'<dt>필수</dt><dd>공연자 안전교육 수료증 (수료 2년 이내)</dd>':'')
       +'</dl>'
       +'<div class="act" style="display:flex;gap:8px;flex-wrap:wrap">'+(force?'':'<button class="btn out sm'+(on?' open':'')+'" onclick="toggleMore(\''+p.id+'\')">'+(on?'접기':'내용보기')+'<span class="chev">▾</span></button>')+(mh?'<a class="btn out sm" href="'+esc(mh)+'" target="_blank" rel="noopener" style="text-decoration:none">지도 보기</a>':'')+'</div>'
       +'<div class="more'+(on?' on':'')+'" id="mo-'+p.id+'">'
