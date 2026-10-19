@@ -967,7 +967,7 @@ async function respondInvite(id, ok){
 async function cancelApp(id){
   var a=S.apps[id], p=S.projects.filter(function(x){ return x.id===id; })[0]||{}; if(!a) return;
   var conf=a.status==='confirmed';
-  var reason=prompt((conf?'확정된 일정을 취소합니다. 오디오에이지에 사유와 함께 바로 알림이 갑니다.\n\n취소 사유 (필수)':'참여 신청을 취소합니다.\n\n취소 사유 (선택)')+' — '+(p.title||''), '');
+  var reason=prompt((conf?'확정된 일정을 취소합니다. 오디오에이지에 사유와 함께 바로 알림이 갑니다.\n확정 후 취소는 현장 인력 운영에 큰 차질을 줍니다. 부득이한 사정이 있을 때만 신중하게 취소해 주세요.\n\n취소 사유 (필수)':'참여 신청을 취소합니다.\n\n취소 사유 (선택)')+' — '+(p.title||''), '');
   if (reason===null) return;
   reason=reason.trim(); if (conf && !reason) return toast('확정된 참여를 취소하려면 사유를 적어 주세요.');
   var r=await sb.rpc('crew_cancel_my_application', { p_project:id, p_reason:reason });
