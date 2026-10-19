@@ -422,6 +422,9 @@ function dLabel(p){ var s=pd(p.date_start), t=WD[s.getDay()], r=(s.getMonth()+1)
 function nDays(p){ return (!p.date_end||p.date_end<=p.date_start) ? 1 : Math.round((pd(p.date_end)-pd(p.date_start))/864e5)+1; }
 function errText(e){
   var m=(e&&e.message)||String(e);
+  if (/safety_cert_required/.test(m)) return '이 행사는 공연자 안전교육 수료증(행사일 기준 수료 2년 이내)이 필요합니다. 다시 수료한 뒤 새 수료증을 제출해 주세요.';
+  if (/rrn_keep_paid/.test(m)) return '페이를 지급한 기록이 있어 지급명세서 보관 기간(5년) 동안은 삭제할 수 없습니다. 바꾸려면 새 번호를 입력해 덮어쓰세요.';
+  if (/bad_date/.test(m)) return '수료일자를 바르게 읽지 못했습니다. 수료증 전체가 또렷하게 보이도록 다시 찍거나 PDF로 올려 주세요.';
   if (/Invalid login credentials/i.test(m)) return '이메일 또는 비밀번호가 맞지 않습니다.';
   if (/Email not confirmed/i.test(m)) return '이메일 인증이 아직 안 됐습니다. 가입 때 받은 메일의 인증 버튼을 눌러 주세요.';
   if (/rate limit|too many/i.test(m)) return '요청이 많아 잠시 막혔습니다. 몇 분 뒤 다시 시도해 주세요.';
@@ -630,7 +633,8 @@ function renderDocs(){
 }
 /* ── 공연자 안전교육 수료증 자동 인식 (2026-10-19) — 브라우저 안에서 글자를 읽는다(PDF 글자층·사진 글자 인식). 행사 마지막 날 <= 수료일+2년 이면 통과 ── */
 var CERT_FAIL='행사일 기준으로 수료일로부터 2년이 지난 수료증입니다.\n공연자 안전교육을 다시 수료한 뒤 새 수료증을 제출해 주세요.';
-function certExp(d){ var t=pd(d); t.setFullYear(t.getFullYear()+2); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+function certExp(d){ var t=pd(d), dd=t.getDate(); t.setFullYear(t.getFullYear()+2); if (t.getDate()!==dd) t.setDate(0);   // 2/29 → 2/28 (앱·서버와 같게)
+  return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
 function certOk(p){ if (!p || !p.requires_safety) return true;   // 수료증이 필요 없는 행사
   var d=S.member&&S.member.safety_cert_date; if(!d) return null; return (p.date_end||p.date_start) <= certExp(d); }
 function loadScript(src){ return new Promise(function(ok, no){ var x=document.createElement('script'); x.src=src; x.onload=ok; x.onerror=no; document.head.appendChild(x); }); }
@@ -682,7 +686,7 @@ async function upCert(input, pid){
   var r=await sb.from('crew_member_docs').insert({ user_id:S.user.id, kind:'safety', title:f.name, storage_path:path, size_bytes:f.size }).select('id').single();
   if (r.error){ await sb.storage.from('crew-docs').remove([path]); return toast('올리지 못했습니다: '+errText(r.error)); }
   var s2=await sb.rpc('crew_set_safety_cert', { p_doc:r.data.id, p_date:info.date, p_course:info.course, p_name:info.name });
-  if (s2.error) return toast('수료일을 저장하지 못했습니다: '+errText(s2.error));
+  if (s2.error){ await sb.from('crew_member_docs').delete().eq('id', r.data.id); await sb.storage.from('crew-docs').remove([path]); return alert(errText(s2.error)); }   // 수료일 거부 시 파일도 되돌림
   var me=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle(); if (me.data) S.member=me.data;
   var exp=certExp(info.date), p=pid?S.projects.filter(function(x){ return x.id===pid; })[0]:null;
   var mm=(info.name && S.member && S.member.name && info.name!==String(S.member.name).replace(/\s+/g,''))?'\n\n수료증의 이름('+info.name+')이 회원 이름과 다릅니다. 본인 수료증이 맞는지 확인해 주세요.':'';
