@@ -654,8 +654,10 @@ async function certLines(f){
   var w=await Tesseract.createWorker('kor+eng'); var r=await w.recognize(canvas||f); await w.terminate();
   return lines.concat(String(r.data.text||'').split('\n'));
 }
+var CERT_CONSENT='[개인정보 수집·이용 동의]\n공연자 안전교육 수료증을 올리기 전에 확인해 주세요.\n\n· 수집 항목: 수료증 파일(성명·생년월일 포함), 과정명, 수료일자\n· 목적: 공연법에 따른 안전교육 이수 확인, 행사 투입 자격 확인\n· 보유 기간: 수료일로부터 2년(유효기간)이 지나면 파일과 성명 기록을 파기, 탈퇴 시 즉시 파기\n· 글자 인식은 이 브라우저 안에서만 하며, 외부 분석 서비스로 보내지 않습니다.\n· 본인과 오디오에이지 관리자만 볼 수 있습니다.\n\n동의하지 않을 수 있으나, 수료증이 필요한 행사에는 지원·수락할 수 없습니다.\n\n동의하고 올리시겠습니까?';
 async function upCert(input, pid){
   var f=input.files&&input.files[0]; input.value=''; if(!f) return;
+  if (!confirm(CERT_CONSENT)) return;
   if (f.size>10485760) return toast('10MB 를 넘는 파일은 올릴 수 없습니다.');
   if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) return alert('JPG·PNG 사진 또는 PDF 수료증을 올려 주세요.');
   toast('수료증을 읽는 중… (처음엔 10초쯤 걸릴 수 있습니다)');
