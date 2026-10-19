@@ -78,6 +78,8 @@ a{color:#1877F2}
     <ul>
       <li>문의 메일(support@audioazpro.com)로 언제든 탈퇴를 요청할 수 있으며, 지체 없이 프로필·신청 내역·알림 정보를 삭제합니다.</li>
       <li>단, 이미 확정·정산된 참여가 있는 경우 <b>국세기본법 등 관계 법령에 따라 이름·사업자 정보·지급 기록을 5년간</b> 보관한 뒤 파기합니다. 연락처·이메일·경력·계좌·제출 서류 파일은 탈퇴 즉시 지웁니다. 감독은 언제든 [내 정보]에서 제출 서류를 직접 삭제할 수 있습니다.</li>
+      <li>신분증·통장 사본 등 제출 서류 파일은 <b>제출일로부터 1년이 지나면 자동으로 파기</b>합니다(탈퇴 시 즉시). 단, 지급명세서 제출에 쓴 정보(성명·지급 기록 등)는 국세기본법에 따라 5년간 보관합니다.</li>
+      <li>파기 방법: 전자 파일과 기록은 복구할 수 없는 방법으로 삭제합니다.</li>
       <li>크루 계정은 AudioAZ Pro(audioazpro.com) 회원과 별개의 전용 계정입니다. 앱·웹의 [크루 탈퇴]를 누르면 크루 계정과 크루 정보가 삭제되며(위 법정 보관 기록 제외), Pro 회원 정보에는 영향이 없습니다.</li>
     </ul>
   </section>
@@ -85,25 +87,38 @@ a{color:#1877F2}
   <section>
     <h2>5. 처리 위탁·국외 이전</h2>
     <table>
-      <thead><tr><th>받는 곳</th><th>업무</th><th>위치</th></tr></thead>
+      <thead><tr><th>받는 곳 (연락처)</th><th>업무</th><th>이전 항목</th><th>위치 · 이전 시기·방법</th><th>보유 기간</th></tr></thead>
       <tbody>
-        <tr><td>Supabase Inc.</td><td>회원 인증·데이터베이스·제출 서류 저장</td><td>AWS 서울 리전(ap-northeast-2)</td></tr>
-        <tr><td>Apple Inc.</td><td>푸시 알림 전달(APNs)</td><td>미국</td></tr>
-        <tr><td>Resend, Inc.</td><td>로그인 링크·알림 메일 발송</td><td>미국</td></tr>
+        <tr><td>Supabase Inc. (privacy@supabase.io)</td><td>회원 인증·데이터베이스·제출 서류 저장 (처리 위탁)</td><td>이 방침 2항의 항목</td><td>AWS 서울 리전(ap-northeast-2) · 서비스 이용 시 암호화 전송</td><td>위탁 계약 종료 또는 이 방침의 보관 기간까지</td></tr>
+        <tr><td>Apple Inc. (apple.com/legal/privacy/contact)</td><td>푸시 알림 전달(APNs)</td><td>기기 알림 토큰, 알림 문구(공고명·일정)</td><td>미국 · 알림을 보낼 때마다 네트워크 전송</td><td>전달 후 Apple 정책에 따름</td></tr>
+        <tr><td>Resend, Inc. (resend.com/legal/privacy-policy)</td><td>인증번호·알림 메일 발송</td><td>이메일 주소, 메일 내용</td><td>미국 · 메일을 보낼 때마다 네트워크 전송</td><td>발송 후 업체의 발송 기록 보관 기간</td></tr>
+        <tr><td>jsDelivr·cdnjs (공개 CDN)</td><td>웹 화면 구성 파일(글자 인식 도구 등) 전달</td><td>개인정보를 보내지 않음 (접속 IP만 전달됨)</td><td>해외 · 웹 화면을 열 때</td><td>업체 정책에 따름</td></tr>
       </tbody>
     </table>
+    <p style="margin-top:10px">국외 이전을 원하지 않으면 앱 알림·메일 알림을 끌 수 있습니다. 다만 비밀번호 찾기 인증번호 메일은 끌 수 없으며, 끄면 해당 알림을 받지 못합니다.</p>
     <p style="margin-top:10px">위 업체 외에 제3자에게 개인정보를 제공하거나 판매하지 않습니다.</p>
   </section>
 
   <section>
-    <h2>6. 이용자의 권리</h2>
+    <h2>6. 자동 판정</h2>
+    <p>공연자 안전교육 수료증은 기기·브라우저 안에서 수료일을 읽어, 수료증이 필요한 행사의 지원·수락 가능 여부를 자동으로 판정합니다. 인식이 잘못됐다고 생각되면 support@audioazpro.com 으로 알려 주시면 관리자가 직접 확인합니다.</p>
+  </section>
+
+  <section>
+    <h2>7. 안전성 확보 조치</h2>
+    <p>모든 접속은 암호화(HTTPS)되며, 비밀번호는 복원할 수 없는 암호화 값으로만 저장합니다. 제출 서류는 비공개 저장소에 두고 본인과 관리자만 열람할 수 있으며, 관리자는 패스키(생체 인증)로만 로그인합니다.</p>
+  </section>
+
+  <section>
+    <h2>8. 이용자의 권리</h2>
     <p>언제든 자신의 정보를 열람·수정([내 정보])·삭제(탈퇴 요청)할 수 있고, 처리 정지를 요청할 수 있습니다. 요청은 아래 연락처로 보내 주시면 지체 없이 처리합니다.</p>
   </section>
 
   <section>
-    <h2>7. 개인정보 보호책임자·문의</h2>
+    <h2>9. 개인정보 보호책임자·문의</h2>
     <p>오디오에이지(AudioAZ) · 대표 김형준 · 사업자등록번호 456-17-01966<br>
-    개인정보 보호책임자: 김형준 · <a href="mailto:support@audioazpro.com">support@audioazpro.com</a></p>
+    개인정보 보호책임자: 김형준 · <a href="mailto:support@audioazpro.com">support@audioazpro.com</a> · 070-4837-1073</p>
+    <p style="margin-top:8px">이 방침이 바뀌면 시행 7일 전부터 크루 앱·웹에 알립니다.</p>
     <p style="margin-top:8px">개인정보 침해 신고·상담: 개인정보침해신고센터(privacy.kisa.or.kr, 118), 개인정보분쟁조정위원회(kopico.go.kr, 1833-6972)</p>
   </section>
 
