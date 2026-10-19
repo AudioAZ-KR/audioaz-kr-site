@@ -611,11 +611,85 @@ function renderDocs(){
   $('docsList').innerHTML=DOC_KINDS.map(function(k){
     var fs=DOCS.filter(function(d){ return d.kind===k[0]; });
     return '<div class="docrow"><div class="dk"><b>'+k[1]+'</b>'+(fs.length?' <span class="led g"><i></i>제출됨</span>':' <span class="led d"><i></i>미제출</span>')+'</div>'
+      +(k[0]==='safety'?(S.member&&S.member.safety_cert_date?'<p class="meta" style="margin:4px 0;color:'+(today()>certExp(S.member.safety_cert_date)?'var(--red,#D63B40)':'var(--green,#1DB46C)')+'">공연자 안전교육 · 수료 '+esc(S.member.safety_cert_date)+' · '+certExp(S.member.safety_cert_date)+'까지 행사에 사용 가능'+(today()>certExp(S.member.safety_cert_date)?' (기간 지남 — 다시 수료 후 제출)':'')+'</p>':'<p class="meta" style="margin:4px 0">공연자 안전교육 수료증(JPG·PDF)을 올리면 수료일을 자동으로 읽어 행사마다 2년 이내인지 확인합니다.</p>'):'')
       +(fs.length?'<ul>'+fs.map(function(d){ return '<li><button type="button" class="lnk" onclick="openDoc(\''+d.id+'\')">'+esc(d.title)+'</button> <span class="meta">'+sizeStr(d.size_bytes)+' · '+esc(String(d.created_at).slice(0,10))+'</span> <button type="button" class="lnk" style="color:var(--red)" onclick="delDoc(\''+d.id+'\')">삭제</button></li>'; }).join('')+'</ul>':'')
       +'<label class="btn out sm" style="cursor:pointer;margin-top:6px">파일 올리기<input type="file" accept="image/*,application/pdf" style="display:none" onchange="upDoc(this,\''+k[0]+'\')"></label></div>';
   }).join('');
 }
+/* ── 공연자 안전교육 수료증 자동 인식 (2026-10-19) — 브라우저 안에서 글자를 읽는다(PDF 글자층·사진 글자 인식). 행사 마지막 날 <= 수료일+2년 이면 통과 ── */
+var CERT_FAIL='행사일 기준으로 수료일로부터 2년이 지난 수료증입니다.\n공연자 안전교육을 다시 수료한 뒤 새 수료증을 제출해 주세요.';
+function certExp(d){ var t=pd(d); t.setFullYear(t.getFullYear()+2); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+function certOk(p){ var d=S.member&&S.member.safety_cert_date; if(!d) return null; return (p.date_end||p.date_start) <= certExp(d); }
+function loadScript(src){ return new Promise(function(ok, no){ var x=document.createElement('script'); x.src=src; x.onload=ok; x.onerror=no; document.head.appendChild(x); }); }
+function certDates(s){ var re=/(20\d{2})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/g, m, out=[];
+  while((m=re.exec(s))){ var mo=+m[2], d=+m[3]; if(mo>=1&&mo<=12&&d>=1&&d<=31) out.push(m[1]+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0')); } return out; }
+function parseCert(lines){
+  lines=lines.map(function(l){ return String(l).trim(); }).filter(Boolean);
+  var c=function(x){ return x.replace(/\s+/g,''); }, all=c(lines.join('')), info={ date:null, name:null, course:null };
+  info.perf = all.indexOf('공연자안전교육')>=0 || all.indexOf('공연법제11조의4')>=0 || (all.indexOf('공연')>=0 && all.indexOf('안전교육')>=0);
+  var lab=null, ds=[];
+  lines.forEach(function(l){ var k=c(l), d=certDates(l), v=(l.split(/[:：]/)[1]||'').trim();
+    if ((k.indexOf('수료일')>=0||k.indexOf('이수일')>=0) && d.length && !lab) lab=d[0];
+    if (k.indexOf('생년')<0) ds=ds.concat(d);
+    if (!info.name && k.indexOf('성명')>=0 && v) info.name=v.replace(/\s+/g,'');
+    if (!info.course && k.indexOf('과정명')>=0 && v) info.course=v; });
+  if (!info.course) info.course=lines.filter(function(l){ return c(l).indexOf('안전교육')>=0 && c(l).indexOf('이수하였')<0; })[0]||null;
+  var t=today(); info.date = lab || ds.filter(function(d){ return d<=t; }).sort().pop() || null;
+  return info;
+}
+async function certLines(f){
+  var lines=[], canvas=null, isPdf=/pdf/.test(f.type)||/\.pdf$/i.test(f.name);
+  if (isPdf){
+    if (!window.pdfjsLib){ await loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }
+    var doc=await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise, page=await doc.getPage(1);
+    var tc=await page.getTextContent(), rows={};
+    tc.items.forEach(function(it){ var y=Math.round(it.transform[5]/4); (rows[y]=rows[y]||[]).push(it); });
+    Object.keys(rows).sort(function(a,b){ return b-a; }).forEach(function(y){ lines.push(rows[y].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).map(function(i){ return i.str; }).join(' ')); });
+    if (certDates(lines.join(' ')).length) return lines;
+    var vp=page.getViewport({ scale: 2.5 }); canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  }
+  if (!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  var w=await Tesseract.createWorker('kor+eng'); var r=await w.recognize(canvas||f); await w.terminate();
+  return lines.concat(String(r.data.text||'').split('\n'));
+}
+async function upCert(input, pid){
+  var f=input.files&&input.files[0]; input.value=''; if(!f) return;
+  if (f.size>10485760) return toast('10MB 를 넘는 파일은 올릴 수 없습니다.');
+  if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) return alert('JPG·PNG 사진 또는 PDF 수료증을 올려 주세요.');
+  toast('수료증을 읽는 중… (처음엔 10초쯤 걸릴 수 있습니다)');
+  var info; try{ info=parseCert(await certLines(f)); }catch(e){ return alert('수료증을 읽지 못했습니다. 다시 시도하거나 앱에서 올려 주세요.'); }
+  if (!info.perf) return alert('공연자 안전교육 수료증이 아닌 것 같습니다.\n\'공연자 안전교육\' 수료증(JPG·PDF)을 올려 주세요.');
+  if (!info.date) return alert('수료일자를 읽지 못했습니다.\n수료증 전체가 또렷하게 보이도록 다시 찍거나 PDF로 올려 주세요.');
+  var ext=((f.name.match(/\.([A-Za-z0-9]{1,6})$/)||['',''])[1]||'').toLowerCase(), path=S.user.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+(ext?'.'+ext:'');
+  var up=await sb.storage.from('crew-docs').upload(path, f, { contentType:f.type||'application/pdf', upsert:false });
+  if (up.error) return toast('올리지 못했습니다: '+errText(up.error));
+  var r=await sb.from('crew_member_docs').insert({ user_id:S.user.id, kind:'safety', title:f.name, storage_path:path, size_bytes:f.size }).select('id').single();
+  if (r.error){ await sb.storage.from('crew-docs').remove([path]); return toast('올리지 못했습니다: '+errText(r.error)); }
+  var s2=await sb.rpc('crew_set_safety_cert', { p_doc:r.data.id, p_date:info.date, p_course:info.course, p_name:info.name });
+  if (s2.error) return toast('수료일을 저장하지 못했습니다: '+errText(s2.error));
+  var me=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle(); if (me.data) S.member=me.data;
+  var exp=certExp(info.date), p=pid?S.projects.filter(function(x){ return x.id===pid; })[0]:null;
+  var mm=(info.name && S.member && S.member.name && info.name!==String(S.member.name).replace(/\s+/g,''))?'\n\n수료증의 이름('+info.name+')이 회원 이름과 다릅니다. 본인 수료증이 맞는지 확인해 주세요.':'';
+  if (p && (p.date_end||p.date_start) > exp) alert('이 행사에는 쓸 수 없습니다\n\n수료일 '+info.date+' → '+exp+'까지 유효\n행사일 '+(p.date_end||p.date_start)+'\n\n'+CERT_FAIL+mm);
+  else if (today() > exp) alert('기간이 지난 수료증입니다\n\n수료일 '+info.date+' → '+exp+'까지 유효\n\n'+CERT_FAIL+mm);
+  else alert('수료증 확인 완료\n\n공연자 안전교육 · 수료일 '+info.date+'\n'+exp+'까지 열리는 행사에 쓸 수 있습니다. 다음부터는 다시 올리지 않아도 됩니다.'+mm);
+  loadDocs(); if (pid) setTab(S.tab);
+}
+function certBox(p){
+  var d=S.member&&S.member.safety_cert_date, ok=certOk(p);
+  return '<div class="field"><label>공연자 안전교육 수료증</label>'
+    +(d?'<p class="meta" style="margin:0 0 6px;color:'+(ok?'var(--green,#1DB46C)':'var(--red,#D63B40)')+'">'+(ok?'통과':'기간 지남')+' · 수료 '+esc(d)+' · '+certExp(d)+'까지 유효</p>'
+       :'<p class="meta" style="margin:0 0 6px">미제출 — 한 번 올리면 다음부터는 자동으로 확인합니다</p>')
+    +(ok?'':'<input type="file" accept="application/pdf,image/jpeg,image/png" onchange="upCert(this,\''+p.id+'\')">')+'</div>';
+}
+function certGate(p){
+  var ok=certOk(p); if (ok) return true;
+  alert(ok===null ? '안전교육 수료증이 필요합니다\n\n공연자 안전교육 수료증(JPG·PDF)을 먼저 올려 주세요. 한 번만 올리면 다음부터는 자동으로 확인합니다.' : '이 행사에는 쓸 수 없습니다\n\n'+CERT_FAIL);
+  return false;
+}
 async function upDoc(input, kind){
+  if (kind==='safety') return upCert(input, null);
   // 신분증·통장 사본은 민감한 서류 — 올리기 전에 수집·이용 동의를 명시적으로 받는다 (개인정보보호법 22조)
   if (kind==='id' || kind==='bank'){
     if (!confirm('신분증·통장 사본은 원천징수 신고와 정산 목적으로만 수집·보관합니다 (보유 5년, 본인과 관리자만 열람).\n신분증은 주민등록번호 뒷자리를 가려서 올려 주세요.\n\n수집·이용에 동의하고 업로드할까요?')){ input.value=''; return; }
@@ -788,6 +862,7 @@ function projArticle(p, force){
       +(a&&a.status==='confirmed'?'<div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div>':'')
       +(btn?'<div class="act">'+btn+'</div>':'')
       +'<div class="apply" id="ap-'+p.id+'"><div class="g2">'
+      +certBox(p)
       +(S.member&&S.member.level==='core'?'<div class="field"><label>지원 등급</label><select id="apL-'+p.id+'"><option value="core">코어로 지원</option><option value="crew"'+(a&&a.apply_level==='crew'?' selected':'')+'>크루로 지원 (크루 모집 인원으로 확정)</option></select></div>':'')
       +'<div class="field"><label>희망 포지션</label><input id="apR-'+p.id+'" maxlength="40" placeholder="'+esc(p.roles?'예: '+p.roles.split(/[,·/]/)[0].trim():'예: FOH')+'" value="'+esc(a&&a.role||'')+'"></div>'
       +'<div class="field"><label>남길 말 (선택)</label><input id="apN-'+p.id+'" maxlength="300" placeholder="가능 시간, 참고 사항 등" value="'+esc(a&&a.note||'')+'"></div></div>'
@@ -869,6 +944,7 @@ async function getFile(pid, id){
 }
 function toggleApply(id){ var el=$('ap-'+id); el.classList.toggle('on'); if (el.classList.contains('on')) $('apR-'+id).focus(); }
 async function apply(id){
+  var pj=S.projects.filter(function(x){ return x.id===id; })[0]; if (pj && !certGate(pj)) return;
   var role=$('apR-'+id).value.trim()||null, note=$('apN-'+id).value.trim()||null, a=S.apps[id], r, lv=$('apL-'+id)?$('apL-'+id).value:null;
   if (a) r=await sb.from('crew_applications').update({ status:'applied', role:role, note:note, apply_level:lv }).eq('id', a.id);
   else   r=await sb.from('crew_applications').insert({ project_id:id, user_id:S.user.id, role:role, note:note, status:'applied', apply_level:lv });
@@ -879,6 +955,7 @@ async function apply(id){
 /* 비공개 공고 지정 초대 — 수락하면 바로 참여 확정, 거절하면 본인 취소 */
 async function respondInvite(id, ok){
   if (!ok && !confirm('이 초대를 거절할까요?')) return;
+  if (ok){ var pj=S.projects.filter(function(x){ return x.id===id; })[0]; if (pj && !certGate(pj)) return; }
   var r=await sb.rpc('crew_respond_invite', { p_project:id, p_accept:!!ok });
   if (r.error) return toast(/full/.test(r.error.message)?'정원이 이미 찼습니다. 오디오에이지에 문의해 주세요.':(/no_invite/.test(r.error.message)?'초대가 취소됐거나 이미 응답했습니다.':errText(r.error)));
   toast(ok?'참여가 확정됐습니다.':'초대를 거절했습니다.'); await loadData(); if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab);
