@@ -357,6 +357,18 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       <button class="btn pri" type="submit" id="profBtn">저장</button>
       <div class="msg" id="profMsg"></div>
     </form>
+    <form class="box" style="margin-top:14px" onsubmit="saveRrn(event)" id="rrnBox" autocomplete="off">
+      <div class="h" style="font-size:17px">주민등록번호 <span class="meta" style="font-weight:400">원천징수 신고용</span></div>
+      <p class="sub" style="margin-bottom:12px">개인(3.3%·일용)으로 페이를 받는 경우에 필요합니다. 소득세법 제164조에 따른 지급명세서 제출을 위해 <b>법령 근거로</b> 처리하며, 암호화해 따로 보관하고 오디오에이지 관리자만 볼 수 있습니다.</p>
+      <p class="meta" id="rrnHint" style="margin:0 0 10px"></p>
+      <div style="display:flex;align-items:center;gap:8px;max-width:360px">
+        <input id="rrnA" inputmode="numeric" maxlength="6" placeholder="앞 6자리" autocomplete="off" style="flex:6;font-family:var(--mono);letter-spacing:.12em">
+        <span class="meta">-</span>
+        <input id="rrnB" type="password" inputmode="numeric" maxlength="7" placeholder="뒤 7자리" autocomplete="new-password" style="flex:7;font-family:var(--mono);letter-spacing:.2em">
+      </div>
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center"><button class="btn out" type="submit">저장</button><button type="button" class="lnk" id="rrnDel" onclick="delRrn()" style="display:none">삭제</button></div>
+      <div class="msg" id="rrnMsg"></div>
+    </form>
     <form class="box" style="margin-top:14px" onsubmit="doChangePw(event)">
       <div class="h" style="font-size:17px">비밀번호 변경</div>
       <p class="sub" style="margin-bottom:14px">이메일 링크나 패스키로만 들어오던 분도 여기서 비밀번호를 만들 수 있습니다. 앱과 audioazpro.com 에 같이 쓰입니다.</p>
@@ -369,7 +381,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       <div class="h" style="font-size:17px">제출 서류</div>
       <p class="sub" style="margin-bottom:14px">현장 투입·정산에 필요한 서류를 올려 주세요. <b>본인과 오디오에이지 관리자만</b> 볼 수 있고, 다른 감독은 볼 수 없습니다. 사진(JPG·PNG·HEIC) 또는 PDF, 파일당 10MB까지.</p>
       <div id="docsList"></div>
-      <p class="meta" style="margin-top:12px">신분증은 원천징수 신고(소득세법)에만 쓰입니다. 탈퇴하면 올린 서류는 함께 삭제됩니다.</p>
+      <p class="meta" style="margin-top:12px">신분증 사본은 더 이상 받지 않습니다 — 주민등록번호는 위 칸에 입력해 주세요. 제출 서류는 제출일로부터 1년 후 자동 파기되며, 탈퇴하면 즉시 삭제됩니다.</p>
     </div>
   </section>
 
@@ -608,7 +620,7 @@ async function loadDocs(){
   DOCS=r.data||[]; renderDocs();
 }
 function renderDocs(){
-  $('docsList').innerHTML=DOC_KINDS.map(function(k){
+  $('docsList').innerHTML=DOC_KINDS.filter(function(k){ return k[0]!=='id' || DOCS.some(function(d){ return d.kind==='id'; }); }).map(function(k){
     var fs=DOCS.filter(function(d){ return d.kind===k[0]; });
     return '<div class="docrow"><div class="dk"><b>'+k[1]+'</b>'+(fs.length?' <span class="led g"><i></i>제출됨</span>':' <span class="led d"><i></i>미제출</span>')+'</div>'
       +(k[0]==='safety'?(S.member&&S.member.safety_cert_date?'<p class="meta" style="margin:4px 0;color:'+(today()>certExp(S.member.safety_cert_date)?'var(--red,#D63B40)':'var(--green,#1DB46C)')+'">공연자 안전교육 · 수료 '+esc(S.member.safety_cert_date)+' · '+certExp(S.member.safety_cert_date)+'까지 행사에 사용 가능'+(today()>certExp(S.member.safety_cert_date)?' (기간 지남 — 다시 수료 후 제출)':'')+'</p>':'<p class="meta" style="margin:4px 0">공연자 안전교육 수료증(JPG·PDF)을 올리면 수료일을 자동으로 읽어 행사마다 2년 이내인지 확인합니다.</p>'):'')
@@ -780,6 +792,32 @@ function fillProfile(){
   $('pBank').value=m.bank_name||''; $('pAcct').value=m.bank_account||''; $('pHolder').value=m.bank_holder||'';
   $('profBtn').textContent = S.member ? '저장' : '등록하고 시작하기';
   bizToggle();
+  if (S.member) loadRrn(); $('rrnBox').style.display = S.member ? '' : 'none';
+}
+/* 주민등록번호 — 앞 6자리 입력하면 뒤 7자리 칸으로 자동 이동, 뒤 7자리는 가려서 입력 (2026-10-19) */
+async function loadRrn(){
+  var r=await sb.rpc('crew_rrn_hint'); var h=r.data||'';
+  $('rrnHint').textContent = h ? '등록됨: '+h+' (바꾸려면 다시 입력)' : '아직 등록하지 않았습니다.';
+  $('rrnDel').style.display = h ? '' : 'none';
+}
+(function(){
+  var A=document.getElementById('rrnA'), B=document.getElementById('rrnB'); if(!A||!B) return;
+  A.addEventListener('input', function(){ A.value=A.value.replace(/\D/g,'').slice(0,6); if (A.value.length===6) B.focus(); });
+  B.addEventListener('input', function(){ B.value=B.value.replace(/\D/g,'').slice(0,7); });
+  B.addEventListener('keydown', function(e){ if (e.key==='Backspace' && !B.value) { A.focus(); } });
+})();
+async function saveRrn(ev){
+  ev.preventDefault(); clearMsg('rrnMsg');
+  var a=$('rrnA').value, b=$('rrnB').value;
+  if (a.length!==6 || b.length!==7) return msg('rrnMsg','앞 6자리와 뒤 7자리를 모두 입력해 주세요.');
+  var r=await sb.rpc('crew_set_rrn', { p_rrn:a+b });
+  if (r.error) return msg('rrnMsg', /bad_rrn/.test(r.error.message)?'주민등록번호 형식이 맞지 않습니다. 다시 확인해 주세요.':errText(r.error));
+  $('rrnA').value=''; $('rrnB').value=''; msg('rrnMsg','암호화해 저장했습니다.',true); loadRrn();
+}
+async function delRrn(){
+  if (!confirm('등록한 주민등록번호를 삭제할까요?\n개인으로 페이를 받으면 원천징수 신고를 위해 다시 입력해야 합니다.')) return;
+  var r=await sb.rpc('crew_delete_rrn'); if (r.error) return msg('rrnMsg', errText(r.error));
+  msg('rrnMsg','삭제했습니다.',true); loadRrn();
 }
 function bizToggle(){ var b=document.querySelector('input[name=pBiz]:checked').value==='1'; $('bizRow').style.display=b?'':'none'; }
 async function saveProfile(ev){
