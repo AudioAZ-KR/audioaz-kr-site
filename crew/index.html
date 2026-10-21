@@ -226,6 +226,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
         <div class="field"><label>연락처</label><input id="sPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000"></div>
         <div class="field"><label>이메일 (알림·비밀번호 찾기용)</label><input type="email" id="sEmail" autocomplete="email" required><div class="typo" id="sTypo" hidden><span>혹시 이 주소가 아닌가요?</span> <b id="sTypoAddr"></b> <button type="button" class="lnk" onclick="fixEmailTypo()">이 주소로 고치기</button></div></div>
         <div class="field"><label>초대 코드 (선택)</label><input id="sCode" maxlength="32" autocapitalize="characters" autocomplete="off" style="font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase" placeholder="오디오에이지에서 받은 코드"></div>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:4px 0 14px;cursor:pointer"><input type="checkbox" id="sTerms" required style="margin-top:3px"> <span><a href="/crew/terms.html" target="_blank" rel="noopener">이용 규칙</a>과 <a href="/crew/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 읽었고 동의합니다 (필수)</span></label>
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.55;margin:4px 0 14px;cursor:pointer"><input type="checkbox" id="sAgree" required style="margin-top:3px;flex:none"> <span><b>[필수]</b> 개인정보 수집·이용에 동의합니다.<span class="meta" style="display:block;margin-top:3px">항목: 아이디·이름·연락처·이메일 · 목적: 크루 계정 생성, 일정 안내·연락 · 보유: 탈퇴 시까지(정산 기록은 5년) · 동의하지 않으면 가입할 수 없습니다. <a href="/crew/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></span></span></label>
         <button class="btn pri full" type="submit">가입하기</button>
         <p class="meta" style="margin-top:12px">크루 전용 아이디입니다. 초대 코드를 넣으면 바로 크루 등급, 없으면 일반 등급으로 가입됩니다.</p>
@@ -294,6 +295,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     <div class="tabs" id="appTabs">
       <button type="button" class="on" data-t="projects">모집 중 프로젝트<span class="c" id="cOpen"></span></button>
       <button type="button" data-t="mine">내 일정<span class="c" id="cMine"></span></button>
+      <button type="button" data-t="notice">공지사항<span class="c" id="cNotice"></span></button>
       <button type="button" data-t="profile">내 정보</button>
     </div>
 
@@ -311,7 +313,18 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       <div class="sec">신청·확정 목록</div>
       <div id="mineList"></div>
     </div>
+    <div id="tNotice" class="hide"><div id="noticeList"></div></div>
   </section>
+  <!-- 공지 팝업 · 이용 규칙 동의 (2026-10-21) -->
+  <div id="ovl" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(5,12,24,.55);padding:16px;overflow:auto">
+    <div style="max-width:520px;margin:8vh auto 0;background:var(--card,#fff);border:1px solid var(--line,#DCE3EE);border-radius:6px;padding:20px 20px 16px;position:relative">
+      <button type="button" id="ovlX" aria-label="닫기" style="position:absolute;right:10px;top:8px;border:0;background:none;font-size:24px;line-height:1;color:var(--dim,#5B6B85);cursor:pointer">&times;</button>
+      <div class="meta" id="ovlKind" style="margin-bottom:4px"></div>
+      <div class="h" id="ovlTitle" style="font-size:18px;padding-right:28px"></div>
+      <div id="ovlBody" style="white-space:pre-wrap;font-size:14.5px;line-height:1.65;margin:10px 0 16px;max-height:55vh;overflow:auto"></div>
+      <div id="ovlBtns" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap"></div>
+    </div>
+  </div>
 
   <!-- 프로필 (첫 등록 + 내 정보) -->
   <section id="vProfile" class="hide">
@@ -521,6 +534,7 @@ async function doSignup(ev){
   var r=await sb.auth.signInWithPassword({ email:loginEmail(id), password:pw });
   lockBtn(f,false);
   if (r.error) return msg('authMsg', '가입은 됐습니다. [로그인]에서 아이디 '+id+' 로 들어와 주세요.', true);
+  try{ await sb.rpc('crew_agree_terms', { p_version: TERMS_VER }); }catch(_){}
   if (code) setPending({ code:code, name:name, phone:phone });
   toast('가입했습니다. 아이디 '+id+' 로 로그인됐습니다.'); boot();
 }
@@ -629,6 +643,42 @@ async function boot(){
   await loadData();
   views('app');
   pkBanner();
+  if (S.member.terms_version !== TERMS_VER) showTerms(); else loadNotices(true);
+}
+/* ── 이용 규칙 동의 · 공지 (2026-10-21) ── */
+var TERMS_VER='2026-10-21', NOTICES=[], HIDDEN={};
+function ovl(kind, title, bodyHtml, btns, onX){
+  $('ovlKind').textContent=kind; $('ovlTitle').textContent=title; $('ovlBody').innerHTML=bodyHtml; $('ovlBtns').innerHTML='';
+  btns.forEach(function(b){ var x=document.createElement('button'); x.type='button'; x.className='btn '+(b.pri?'pri':'out')+' sm'; x.textContent=b.t; x.onclick=b.fn; $('ovlBtns').appendChild(x); });
+  $('ovlX').style.display = onX ? '' : 'none'; $('ovlX').onclick = onX || null;
+  $('ovl').style.display='block';
+}
+function ovlClose(){ $('ovl').style.display='none'; }
+function showTerms(){
+  ovl('필수 동의', 'AudioAZ Crew 이용 규칙',
+    '크루 서비스의 지원·확정·취소(확정 일정은 취소 요청 → 오디오에이지 승인)·정산·현장 자료 비밀 유지·이용 제한 기준을 정한 규칙입니다.\n\n<a href="/crew/terms.html" target="_blank" rel="noopener">이용 규칙 전문 보기</a> · <a href="/crew/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>\n\n동의해야 서비스를 계속 이용할 수 있습니다.',
+    [{t:'로그아웃', fn:function(){ ovlClose(); logout(); }}, {t:'동의하고 계속', pri:true, fn:async function(){
+      var r=await sb.rpc('crew_agree_terms', { p_version: TERMS_VER }); if (r.error) return toast(errText(r.error));
+      S.member.terms_version=TERMS_VER; ovlClose(); toast('이용 규칙에 동의했습니다.'); loadNotices(true); }}], null);
+}
+async function loadNotices(popup){
+  var r=await Promise.all([ sb.from('crew_notices').select('id,title,body,popup,pinned,published_at').eq('published', true).order('pinned',{ascending:false}).order('published_at',{ascending:false}).limit(100),
+                            sb.from('crew_notice_hidden').select('notice_id') ]);
+  NOTICES=r[0].data||[]; HIDDEN={}; (r[1].data||[]).forEach(function(h){ HIDDEN[h.notice_id]=1; });
+  var seen={}; try{ seen=JSON.parse(sessionStorage.getItem('az_crew_notice_closed')||'{}'); }catch(_){}
+  var unread=NOTICES.filter(function(n){ return !HIDDEN[n.id]; }).length; $('cNotice').textContent = unread ? unread : '';
+  if (S.tab==='notice') renderNotices();
+  if (!popup) return;
+  var n=NOTICES.filter(function(x){ return x.popup && !HIDDEN[x.id] && !seen[x.id]; })[0]; if (!n) return;
+  var close=function(){ seen[n.id]=1; try{ sessionStorage.setItem('az_crew_notice_closed', JSON.stringify(seen)); }catch(_){} ovlClose(); loadNotices(true); };
+  ovl('공지 · '+String(n.published_at||'').slice(0,10), n.title, esc(n.body),
+    [{t:'다시 보지 않기', fn:async function(){ await sb.from('crew_notice_hidden').insert({ notice_id:n.id }); HIDDEN[n.id]=1; close(); }}, {t:'닫기', pri:true, fn:close}], close);
+}
+function renderNotices(){
+  $('noticeList').innerHTML = NOTICES.length ? NOTICES.map(function(n){
+    return '<details class="box" style="margin-bottom:10px"'+(n.pinned?' open':'')+'><summary style="cursor:pointer;list-style:none"><b>'+(n.pinned?'[고정] ':'')+esc(n.title)+'</b> <span class="meta">'+esc(String(n.published_at||'').slice(0,10))+'</span></summary>'
+      +'<div style="white-space:pre-wrap;margin-top:10px;font-size:14.5px;line-height:1.65">'+esc(n.body)+'</div></details>'; }).join('')
+    : '<div class="empty">공지사항이 없습니다.</div>';
 }
 
 /* ── 제출 서류 (본인·관리자만, 비공개 버킷 crew-docs/<uid>/…) ── */
@@ -881,6 +931,7 @@ async function livePoll(){
     await loadData(); MAT=keep;
     var me=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle(); if (me.data) S.member=me.data;
     if (liveSig()!==before){ if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab); }
+    if ($('ovl').style.display!=='block' && S.member && S.member.terms_version===TERMS_VER) loadNotices(true);
   }catch(_){} finally{ S.livePolling=false; }
 }
 setInterval(livePoll, 15000);
@@ -892,7 +943,8 @@ $('appTabs').addEventListener('click', function(ev){ var b=ev.target.closest('bu
 function setTab(t){
   S.tab=t;
   $('appTabs').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.t===t); });
-  show('tProjects', t==='projects'); show('tMine', t==='mine'); show('vProfile', t==='profile');
+  show('tProjects', t==='projects'); show('tMine', t==='mine'); show('tNotice', t==='notice'); show('vProfile', t==='profile');
+  if (t==='notice') renderNotices();
   if (t==='profile') loadDocs();
   var op=openProjects().filter(function(p){ return p.status==='open'; }).length, mine=Object.values(S.apps).filter(function(a){ return a.status==='applied'||a.status==='confirmed'; }).length;
   $('cOpen').textContent=op; $('cMine').textContent=mine;
