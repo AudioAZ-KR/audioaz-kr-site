@@ -868,6 +868,22 @@ async function loadData(){
   if (S.member && S.member.is_ghost) S.projects.forEach(function(p){ S.apps[p.id]={ id:'ghost-'+p.id, project_id:p.id, user_id:S.user.id, status:'confirmed' }; });
   S.counts={}; (r[2].data||[]).forEach(function(c){ S.counts[c.project_id]=c; });
 }
+/* 화면을 보는 동안 15초마다 조용히 새로 고침 — 바뀐 게 있을 때만 다시 그림. 입력 중이거나 신청서를 펼쳐 둔 동안은 건너뜀 (2026-10-21) */
+function liveSig(){ try{ return JSON.stringify([S.projects, S.apps, S.counts, S.member]); }catch(_){ return ''; } }
+async function livePoll(){
+  if (document.hidden || !S.user || !S.member || S.livePolling) return;
+  var ae=document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+  if (document.querySelector('[id^="ap-"].on')) return;
+  S.livePolling=true;
+  try{
+    var before=liveSig(), keep=MAT;
+    await loadData(); MAT=keep;
+    var me=await sb.from('crew_members').select('*').eq('user_id', S.user.id).maybeSingle(); if (me.data) S.member=me.data;
+    if (liveSig()!==before){ if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab); }
+  }catch(_){} finally{ S.livePolling=false; }
+}
+setInterval(livePoll, 15000);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) livePoll(); });
 function openProjects(){ var t=today(); return S.projects.filter(function(p){ return (p.status==='open'||p.status==='closed') && (p.date_end||p.date_start)>=t; }); }
 
 /* ── 탭 ─────────────────────────────────────────────── */
