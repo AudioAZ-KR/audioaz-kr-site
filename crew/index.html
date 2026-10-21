@@ -423,6 +423,7 @@ function dLabel(p){ var s=pd(p.date_start), t=WD[s.getDay()], r=(s.getMonth()+1)
 function nDays(p){ return (!p.date_end||p.date_end<=p.date_start) ? 1 : Math.round((pd(p.date_end)-pd(p.date_start))/864e5)+1; }
 function errText(e){
   var m=(e&&e.message)||String(e);
+  if (/already_requested/.test(m)) return '이미 취소를 요청했습니다. 오디오에이지의 승인을 기다려 주세요.';
   if (/safety_cert_required/.test(m)) return '이 행사는 공연자 안전교육 수료증(행사일 기준 수료 2년 이내)이 필요합니다. 다시 수료한 뒤 새 수료증을 제출해 주세요.';
   if (/rrn_keep_paid/.test(m)) return '페이를 지급한 기록이 있어 지급명세서 보관 기간(5년) 동안은 삭제할 수 없습니다. 바꾸려면 새 번호를 입력해 덮어쓰세요.';
   if (/bad_date/.test(m)) return '수료일자를 바르게 읽지 못했습니다. 수료증 전체가 또렷하게 보이도록 다시 찍거나 PDF로 올려 주세요.';
@@ -918,7 +919,7 @@ function projArticle(p, force){
     if (a && a.status==='invited') btn='<button class="btn pri sm" onclick="respondInvite(\''+p.id+'\',true)">초대 수락 (참여 확정)</button> <button class="btn out sm" onclick="respondInvite(\''+p.id+'\',false)">거절</button>';
     else if (open && (!a || a.status==='cancelled')) btn='<button class="btn pri sm" onclick="toggleApply(\''+p.id+'\')">'+(a?'다시 참여하기':'참여하기')+'</button>';
     else if (a && a.status==='applied' && (p.date_end||p.date_start)>=today()) btn='<button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">신청 취소</button>';
-    else if (a && a.status==='confirmed') btn='<button class="btn out sm" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>'+((p.date_end||p.date_start)>=today()?' <button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">참여 취소</button>':'');
+    else if (a && a.status==='confirmed') btn='<button class="btn out sm" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>'+((p.date_end||p.date_start)>=today()?(a.cancel_requested_at?' <span class="led a"><i></i>취소 요청 중 · 승인 대기</span> <button class="btn out sm" onclick="withdrawCancel(\''+p.id+'\')">요청 철회</button>':' <button class="btn out sm" onclick="cancelApp(\''+p.id+'\')">참여 취소 요청</button>'):'');
     return '<article class="proj'+(a&&a.status!=='cancelled'?' mine':'')+'" id="pj-'+p.id+'">'
       +'<div class="d"><div class="m">'+s.getFullYear()+'</div><div class="n">'+md(s)+'</div>'
       +(e2?'<div class="to">~ '+md(e2)+'</div>':'')
@@ -1043,13 +1044,18 @@ async function respondInvite(id, ok){
 async function cancelApp(id){
   var a=S.apps[id], p=S.projects.filter(function(x){ return x.id===id; })[0]||{}; if(!a) return;
   var conf=a.status==='confirmed';
-  var reason=prompt((conf?'확정된 일정을 취소합니다. 오디오에이지에 사유와 함께 바로 알림이 갑니다.\n확정 후 취소는 현장 인력 운영에 큰 차질을 줍니다. 부득이한 사정이 있을 때만 신중하게 취소해 주세요.\n\n취소 사유 (필수)':'참여 신청을 취소합니다.\n\n취소 사유 (선택)')+' — '+(p.title||''), '');
+  var reason=prompt((conf?'확정된 일정의 취소를 요청합니다. 오디오에이지에 사유와 함께 알림이 가고, 오디오에이지가 승인해야 취소됩니다(승인 전까지 참여 확정 유지).\n확정 후 취소는 현장 인력 운영에 큰 차질을 줍니다. 부득이한 사정이 있을 때만 신중하게 요청해 주세요.\n\n취소 사유 (필수)':'참여 신청을 취소합니다.\n\n취소 사유 (선택)')+' — '+(p.title||''), '');
   if (reason===null) return;
   reason=reason.trim(); if (conf && !reason) return toast('확정된 참여를 취소하려면 사유를 적어 주세요.');
   var r=await sb.rpc('crew_cancel_my_application', { p_project:id, p_reason:reason });
   if (r.error){ var m=r.error.message||'';
     return toast(/already_paid/.test(m)?'이미 페이가 지급된 참여는 취소할 수 없습니다. 오디오에이지에 연락해 주세요.':/event_ended/.test(m)?'끝난 행사는 취소할 수 없습니다.':/reason_required/.test(m)?'확정된 참여를 취소하려면 사유를 적어 주세요.':errText(r.error)); }
-  toast(conf?'참여를 취소했습니다. 오디오에이지에 알림이 갔습니다.':'신청을 취소했습니다.'); await loadData(); if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab);
+  toast(conf?'취소를 요청했습니다. 오디오에이지가 승인하면 취소됩니다.':'신청을 취소했습니다.'); await loadData(); if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab);
+}
+async function withdrawCancel(id){
+  if (!confirm('취소 요청을 철회할까요? 참여가 그대로 유지됩니다.')) return;
+  var r=await sb.rpc('crew_withdraw_cancel_request', { p_project:id }); if (r.error) return toast(errText(r.error));
+  toast('취소 요청을 철회했습니다.'); await loadData(); if (S.eventPid) openEvent(S.eventPid); else setTab(S.tab);
 }
 
 /* ── 캘린더 — 참여 확정된 일정만 (사장님 규칙). 파일 내려받기 대신 구글·아이폰 캘린더에 바로 등록 ── */
@@ -1120,7 +1126,7 @@ function renderMine(){
     return arr.map(function(x){ var p=x.p, a=x.a, cx=p.status==='cancelled', st=cx?['r','행사 취소']:APP[a.status], canC = !cx && cancel && (a.status==='applied'||a.status==='confirmed') && (p.date_end||p.date_start)>=today();
       return '<tr'+(cx?' class="cx"':'')+'><td class="dt">'+esc(dLabel(p))+'</td><td><b><a href="#" onclick="openEvent(\''+p.id+'\');return false;">'+esc(p.title)+'</a></b>'+(p.is_tentative&&!cx?' <span class="led a" style="margin-left:4px"><i></i>예정</span>':'')+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
         +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
-        +'<td class="full">'+(canC?'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">'+(a.status==='confirmed'?'참여 취소':'신청 취소')+'</button>':'')+(!cx&&a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(!cx&&a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
+        +'<td class="full">'+(canC?(a.status==='confirmed'&&a.cancel_requested_at?'<span class="meta" style="color:var(--amber,#E7A23B)">취소 요청 중</span> ':'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">'+(a.status==='confirmed'?'취소 요청':'신청 취소')+'</button>'):'')+(!cx&&a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(!cx&&a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
         +(a.status==='confirmed'?'<tr class="matrow" id="mr-'+p.id+'" style="display:none"><td colspan="6" class="full"><div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div></td></tr>':''); }).join('');
   }
   var head='<table class="tbl"><thead><tr><th>DATE</th><th>PROJECT</th><th>CALL</th><th>POSITION</th><th>STATUS</th><th></th></tr></thead><tbody>';
