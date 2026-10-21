@@ -367,7 +367,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
       </div>
       <p class="meta" style="margin:-4px 0 16px">정산 정보와 아래 제출 서류는 오디오에이지 관리자만 봅니다.</p>
       <div class="sec">알림</div>
-      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="pNotify" style="margin-top:4px"> <span>참여 확정·결과 소식을 메일로 받기<br><span class="meta">가입한 이메일로 보냅니다</span></span></label>
+      <input type="checkbox" id="pNotify" hidden><p class="meta" style="margin:-4px 0 18px">일정 확정·취소 등 알림은 AudioAZ Crew 앱 푸시로 보냅니다. 메일로는 보내지 않습니다.</p>
       <button class="btn pri" type="submit" id="profBtn">저장</button>
       <div class="msg" id="profMsg"></div>
     </form>
@@ -664,7 +664,7 @@ function showTerms(){
       S.member.terms_version=TERMS_VER; ovlClose(); toast('동의했습니다. 감사합니다.'); loadNotices(true); }}], null);
 }
 async function loadNotices(popup){
-  var r=await Promise.all([ sb.from('crew_notices').select('id,title,body,popup,pinned,published_at').eq('published', true).order('pinned',{ascending:false}).order('published_at',{ascending:false}).limit(100),
+  var r=await Promise.all([ sb.from('crew_notices').select('id,title,body,popup,pinned,urgent,published_at').eq('published', true).order('pinned',{ascending:false}).order('published_at',{ascending:false}).limit(100),
                             sb.from('crew_notice_hidden').select('notice_id') ]);
   NOTICES=r[0].data||[]; HIDDEN={}; (r[1].data||[]).forEach(function(h){ HIDDEN[h.notice_id]=1; });
   var seen={}; try{ seen=JSON.parse(sessionStorage.getItem('az_crew_notice_closed')||'{}'); }catch(_){}
@@ -673,12 +673,12 @@ async function loadNotices(popup){
   if (!popup) return;
   var n=NOTICES.filter(function(x){ return x.popup && !HIDDEN[x.id] && !seen[x.id]; })[0]; if (!n) return;
   var close=function(){ seen[n.id]=1; try{ sessionStorage.setItem('az_crew_notice_closed', JSON.stringify(seen)); }catch(_){} ovlClose(); loadNotices(true); };
-  ovl('공지 · '+String(n.published_at||'').slice(0,10), n.title, esc(n.body),
+  ovl((n.urgent?'긴급 공지 · ':'공지 · ')+String(n.published_at||'').slice(0,10), n.title, esc(n.body),
     [{t:'다시 보지 않기', fn:async function(){ await sb.from('crew_notice_hidden').insert({ notice_id:n.id }); HIDDEN[n.id]=1; close(); }}, {t:'닫기', pri:true, fn:close}], close);
 }
 function renderNotices(){
   $('noticeList').innerHTML = NOTICES.length ? NOTICES.map(function(n){
-    return '<details class="box" style="margin-bottom:10px"'+(n.pinned?' open':'')+'><summary style="cursor:pointer;list-style:none"><b>'+(n.pinned?'[고정] ':'')+esc(n.title)+'</b> <span class="meta">'+esc(String(n.published_at||'').slice(0,10))+'</span></summary>'
+    return '<details class="box" style="margin-bottom:10px"'+(n.pinned?' open':'')+'><summary style="cursor:pointer;list-style:none"><b>'+(n.urgent?'<span style="color:var(--red,#D63B40)">[긴급]</span> ':'')+(n.pinned?'[고정] ':'')+esc(n.title)+'</b> <span class="meta">'+esc(String(n.published_at||'').slice(0,10))+'</span></summary>'
       +'<div style="white-space:pre-wrap;margin-top:10px;font-size:14.5px;line-height:1.65">'+esc(n.body)+'</div></details>'; }).join('')
     : '<div class="empty">공지사항이 없습니다.</div>';
 }
