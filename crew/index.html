@@ -912,7 +912,8 @@ async function loadData(){
   var r=await Promise.all([
     sb.from('crew_projects').select('*').order('date_start',{ascending:true}),
     sb.from('crew_applications').select('*').eq('user_id', S.user.id),
-    sb.rpc('crew_project_counts')
+    sb.rpc('crew_project_counts'),
+    sb.rpc('crew_my_pay_status')
   ]);
   if (r[0].error) { toast(errText(r[0].error)); }
   S.projects=r[0].data||[];
@@ -920,9 +921,10 @@ async function loadData(){
   // 고스트(관리자 확인용) 계정: 모든 공개 프로젝트에 '참여 확정'으로 보인다 — 실제 신청은 없다
   if (S.member && S.member.is_ghost) S.projects.forEach(function(p){ S.apps[p.id]={ id:'ghost-'+p.id, project_id:p.id, user_id:S.user.id, status:'confirmed' }; });
   S.counts={}; (r[2].data||[]).forEach(function(c){ S.counts[c.project_id]=c; });
+  S.pay={}; (r[3].data||[]).forEach(function(c){ S.pay[c.project_id]=c; });   // 지급 여부·지급일만, 금액 없음 (2026-11-03)
 }
 /* 화면을 보는 동안 15초마다 조용히 새로 고침 — 바뀐 게 있을 때만 다시 그림. 입력 중이거나 신청서를 펼쳐 둔 동안은 건너뜀 (2026-10-21) */
-function liveSig(){ try{ return JSON.stringify([S.projects, S.apps, S.counts, S.member]); }catch(_){ return ''; } }
+function liveSig(){ try{ return JSON.stringify([S.projects, S.apps, S.counts, S.member, S.pay]); }catch(_){ return ''; } }
 async function livePoll(){
   if (document.hidden || !S.user || !S.member || S.livePolling) return;
   var ae=document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
@@ -1167,6 +1169,12 @@ async function resetSub(){
 function myItems(){
   return S.projects.filter(function(p){ return S.apps[p.id]; }).map(function(p){ return { p:p, a:S.apps[p.id] }; });
 }
+function payLed(p, a, cx){
+  if (cx || a.status!=='confirmed') return '';
+  var s=(S.pay||{})[p.id];
+  if (s && s.paid) return '<br><span class="led g"><i></i>지급 완료'+(s.paid_at?' '+esc(s.paid_at):'')+'</span>';
+  return (p.date_end||p.date_start)<today() ? '<br><span class="led a"><i></i>지급 대기</span>' : '';
+}
 function renderMine(){
   if (!S.calY){ var d=new Date(); S.calY=d.getFullYear(); S.calM=d.getMonth(); }
   renderCal();
@@ -1179,7 +1187,7 @@ function renderMine(){
   function rows(arr, cancel){
     return arr.map(function(x){ var p=x.p, a=x.a, cx=p.status==='cancelled', st=cx?['r','행사 취소']:APP[a.status], canC = !cx && cancel && (a.status==='applied'||a.status==='confirmed') && (p.date_end||p.date_start)>=today();
       return '<tr'+(cx?' class="cx"':'')+'><td class="dt">'+esc(dLabel(p))+'</td><td><b><a href="#" onclick="openEvent(\''+p.id+'\');return false;">'+esc(p.title)+'</a></b>'+(p.is_tentative&&!cx?' <span class="led a" style="margin-left:4px"><i></i>예정</span>':'')+(p.venue?'<div class="meta">'+esc(p.venue)+'</div>':'')+'</td>'
-        +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span></td>'
+        +'<td>'+esc(p.call_time||'—')+'</td><td>'+esc(a.role||'—')+'</td><td><span class="led '+st[0]+'"><i></i>'+st[1]+'</span>'+payLed(p,a,cx)+'</td>'
         +'<td class="full">'+(canC?(a.status==='confirmed'&&a.cancel_requested_at?'<span class="meta" style="color:var(--amber,#E7A23B)">취소 요청 중</span> ':'<button class="lnk" onclick="cancelApp(\''+p.id+'\')">'+(a.status==='confirmed'?'취소 요청':'신청 취소')+'</button>'):'')+(!cx&&a.status==='confirmed'&&(p.date_end||p.date_start)>=today()?'<button class="lnk" onclick="addCal(\''+p.id+'\')">캘린더에 추가</button>':'')+(!cx&&a.status==='confirmed'?' <button class="lnk" onclick="toggleMat(\''+p.id+'\')">자료 보기</button>':'')+'</td></tr>'
         +(a.status==='confirmed'?'<tr class="matrow" id="mr-'+p.id+'" style="display:none"><td colspan="6" class="full"><div class="mat" id="mat-'+p.id+'"><div class="hd">확정자 전용 자료</div><p class="meta">불러오는 중…</p></div></td></tr>':''); }).join('');
   }
