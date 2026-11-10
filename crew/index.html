@@ -356,9 +356,23 @@ footer a{text-decoration:underline;text-underline-offset:3px}
           <label><input type="radio" name="pBiz" value="1" onchange="bizToggle()"><span>사업자 (세금계산서)</span></label>
         </div>
       </div>
-      <div class="g2" id="bizRow">
-        <div class="field"><label>상호</label><input id="pBizName" maxlength="60"></div>
-        <div class="field"><label>사업자등록번호</label><input id="pBizNo" data-bizno inputmode="numeric" maxlength="12" placeholder="000-00-00000"></div>
+      <div id="bizRow">
+        <div class="field"><label>사업자등록증</label>
+          <p class="meta" style="margin:0 0 6px">사업자등록증(사진·PDF)을 올리면 아래 칸을 자동으로 채웁니다. 글자 인식은 이 브라우저 안에서만 합니다.</p>
+          <label class="btn out sm" style="cursor:pointer">사업자등록증 올리기<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" onchange="upBiz(this)"></label>
+          <div class="msg" id="bizMsg"></div>
+        </div>
+        <div class="g2">
+          <div class="field"><label>상호</label><input id="pBizName" maxlength="60"></div>
+          <div class="field"><label>사업자등록번호</label><input id="pBizNo" data-bizno inputmode="numeric" maxlength="12" placeholder="000-00-00000"></div>
+          <div class="field"><label>대표자</label><input id="pBizCeo" maxlength="30"></div>
+          <div class="field"><label>세금계산서 이메일</label><input id="pTaxEmail" type="email" maxlength="100" placeholder="세금계산서를 받을 주소"></div>
+        </div>
+        <div class="field"><label>사업장 소재지</label><input id="pBizAddr" maxlength="200"></div>
+        <div class="g2">
+          <div class="field"><label>업태</label><input id="pBizType" maxlength="60" placeholder="예: 서비스"></div>
+          <div class="field"><label>종목</label><input id="pBizItem" maxlength="60" placeholder="예: 음향 엔지니어링"></div>
+        </div>
       </div>
       <div class="g3">
         <div class="field"><label>은행</label><input id="pBank" maxlength="20" placeholder="예: 국민"></div>
@@ -373,7 +387,14 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     </form>
     <form class="box" style="margin-top:14px" onsubmit="saveRrn(event)" id="rrnBox" autocomplete="off">
       <div class="h" style="font-size:17px">주민등록번호 <span class="meta" style="font-weight:400">원천징수 신고용</span></div>
-      <p class="sub" style="margin-bottom:12px">개인(3.3%·일용)으로 페이를 받는 경우에 필요합니다. 소득세법 제164조에 따른 지급명세서 제출을 위해 <b>법령 근거로</b> 처리하며, 암호화해 따로 보관하고 오디오에이지 관리자만 볼 수 있습니다.</p>
+      <p class="sub" style="margin-bottom:8px">개인(3.3%·일용)으로 페이를 받는 경우에 필요합니다.</p>
+      <div class="meta" style="margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);line-height:1.6"><b style="color:var(--text)">왜 필요한가요?</b>
+        <div>· 근거: 소득세법 제164조(지급명세서 제출)에 따라 국세청에 내는 지급명세서에 받는 분의 주민등록번호를 적어야 합니다. 동의가 아니라 법령에 따라 처리합니다.</div>
+        <div>· 쓰는 곳: 원천세 신고·지급명세서 제출에만 씁니다. 다른 용도로 쓰거나 다른 곳에 주지 않습니다(국세청 신고 제외).</div>
+        <div>· 보관: 암호화해 따로 보관하고 오디오에이지 관리자만 열람합니다(열람 기록이 남습니다).</div>
+        <div>· 보유 기간: 마지막 지급일로부터 5년 후 파기. 지급 기록이 없으면 언제든 직접 삭제할 수 있습니다.</div>
+        <div>· 사업자(세금계산서)로 받는 분은 입력하지 않아도 됩니다.</div>
+      </div>
       <p class="meta" id="rrnHint" style="margin:0 0 10px"></p>
       <div style="display:flex;align-items:center;gap:8px;max-width:360px">
         <input id="rrnA" inputmode="numeric" maxlength="6" placeholder="앞 6자리" autocomplete="off" style="flex:6;font-family:var(--mono);letter-spacing:.12em">
@@ -684,7 +705,7 @@ function renderNotices(){
 }
 
 /* ── 제출 서류 (본인·관리자만, 비공개 버킷 crew-docs/<uid>/…) ── */
-var DOC_KINDS=[['safety','안전교육 이수증'],['id','신분증'],['bank','통장 사본'],['other','기타']];
+var DOC_KINDS=[['safety','안전교육 이수증'],['biz','사업자등록증'],['id','신분증'],['bank','통장 사본'],['other','기타']];
 var DOCS=[];
 async function loadDocs(){
   if (!S.member || !$('docsList')) return;
@@ -692,7 +713,8 @@ async function loadDocs(){
   DOCS=r.data||[]; renderDocs();
 }
 function renderDocs(){
-  $('docsList').innerHTML=DOC_KINDS.filter(function(k){ return k[0]!=='id' || DOCS.some(function(d){ return d.kind==='id'; }); }).map(function(k){
+  var biz=isBizSel();   // 사업자등록증은 사업자일 때만(이미 올린 게 있으면 표시), 신분증은 이미 올린 것만
+  $('docsList').innerHTML=DOC_KINDS.filter(function(k){ return (k[0]!=='id' && (k[0]!=='biz' || biz)) || DOCS.some(function(d){ return d.kind===k[0]; }); }).map(function(k){
     var fs=DOCS.filter(function(d){ return d.kind===k[0]; });
     return '<div class="docrow"><div class="dk"><b>'+k[1]+'</b>'+(fs.length?' <span class="led g"><i></i>제출됨</span>':' <span class="led d"><i></i>미제출</span>')+'</div>'
       +(k[0]==='safety'?(S.member&&S.member.safety_cert_date?'<p class="meta" style="margin:4px 0;color:'+(today()>certExp(S.member.safety_cert_date)?'var(--red,#D63B40)':'var(--green,#1DB46C)')+'">공연자 안전교육 · 수료 '+esc(S.member.safety_cert_date)+' · '+certExp(S.member.safety_cert_date)+'까지 행사에 사용 가능'+(today()>certExp(S.member.safety_cert_date)?' (기간 지남 — 다시 수료 후 제출)':'')+'</p>':'<p class="meta" style="margin:4px 0">공연자 안전교육 수료증(JPG·PDF)을 올리면 수료일을 자동으로 읽어 행사마다 2년 이내인지 확인합니다.</p>'):'')
@@ -723,7 +745,7 @@ function parseCert(lines){
   var t=today(); info.date = lab || ds.filter(function(d){ return d<=t; }).sort().pop() || null;
   return info;
 }
-async function certLines(f){
+async function certLines(f, enough){   // enough(text) 가 참이면 PDF 글자층만으로 끝냄(기본: 날짜가 읽히면)
   var lines=[], canvas=null, isPdf=/pdf/.test(f.type)||/\.pdf$/i.test(f.name);
   if (isPdf){
     if (!window.pdfjsLib){ await loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }
@@ -731,7 +753,7 @@ async function certLines(f){
     var tc=await page.getTextContent(), rows={};
     tc.items.forEach(function(it){ var y=Math.round(it.transform[5]/4); (rows[y]=rows[y]||[]).push(it); });
     Object.keys(rows).sort(function(a,b){ return b-a; }).forEach(function(y){ lines.push(rows[y].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).map(function(i){ return i.str; }).join(' ')); });
-    if (certDates(lines.join(' ')).length) return lines;
+    if ((enough||function(t){ return certDates(t).length; })(lines.join(' '))) return lines;
     var vp=page.getViewport({ scale: 2.5 }); canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
   }
@@ -777,11 +799,55 @@ function certGate(p){
   alert(ok===null ? '안전교육 수료증이 필요합니다\n\n공연자 안전교육 수료증(JPG·PDF)을 먼저 올려 주세요. 한 번만 올리면 다음부터는 자동으로 확인합니다.' : '이 행사에는 쓸 수 없습니다\n\n'+CERT_FAIL);
   return false;
 }
+/* 사업자등록증 판독 결과 → 칸 (2026-11-10) — tesseract 는 한글 글자 사이에 공백을 넣으므로('상 호') 라벨은 공백 무시로 찾는다 */
+function bizLab(s){ return s.split('').map(function(ch){ return ch==='('||ch===')'?'\\'+ch:ch; }).join('\\s*'); }
+var BIZ_LABS=[['name',['상호(법인명)','법인명(단체명)','상호','법인명']],['ceo',['성명(대표자)','대표자','성명']],['addr',['사업장소재지','사업장주소']],['type',['업태']],['item',['종목']],
+  [null,['생년월일','개업연월일','법인등록번호','주민등록번호','본점소재지','사업의종류','발급사유','공동사업자']]];
+function bizVal(v){ var t=String(v||'').replace(/^[\s:：.\-·]+/,'').replace(/[\s:：.,·|]+$/,'').split(/\s+/), o=[], one=false;
+  t.forEach(function(w){ var s1=/^[가-힣]$/.test(w); if (s1 && one) o[o.length-1]+=w; else if (w) o.push(w); one=s1; });   // '경 기 도' → '경기도'
+  return o.join(' '); }
+function parseBizCert(text){
+  var out={}, s=String(text||''), m=s.match(/(\d{3})\s*-\s*(\d{2})\s*-\s*(\d{5})/); if (m) out.no=m[1]+'-'+m[2]+'-'+m[3];
+  var all=[]; BIZ_LABS.forEach(function(g){ g[1].forEach(function(l){ all.push({ f:g[0], re:new RegExp(bizLab(l),'g') }); }); });
+  s.split(/\r?\n/).forEach(function(line){
+    var hits=[];   // 이 줄에서 찾은 라벨들(위치순) — 한 줄에 '업태 X 종목 Y'·'성명 X 생년월일 Y' 가 같이 나와도 나눈다
+    all.forEach(function(a){ a.re.lastIndex=0; var x; while((x=a.re.exec(line))){ if (!hits.some(function(h){ return x.index<h.end && x.index+x[0].length>h.start; })) hits.push({ f:a.f, start:x.index, end:x.index+x[0].length }); } });
+    hits.sort(function(a,b){ return a.start-b.start; });
+    hits.forEach(function(h, i){ if (!h.f || out[h.f]) return;
+      var v=bizVal(line.slice(h.end, i+1<hits.length?hits[i+1].start:line.length));
+      if (h.f==='ceo') v=v.replace(/\s+/g,'');
+      if (v) out[h.f]=v; });
+  });
+  return out;
+}
+var BIZ_CONSENT='[개인정보 수집·이용 동의]\n사업자등록증을 올리기 전에 확인해 주세요.\n\n· 수집 항목: 사업자등록증 사본(상호·등록번호·대표자·사업장 주소·업태·종목)\n· 목적: 세금계산서 발급·페이 정산\n· 보유 기간: 파일은 제출일로부터 1년 후 파기, 정산에 쓴 사업자 정보는 국세기본법에 따라 5년\n· 글자 인식은 이 브라우저 안에서만 하며, 외부 분석 서비스로 보내지 않습니다.\n· 본인과 오디오에이지 관리자만 볼 수 있습니다.\n\n동의하지 않을 수 있으나, 그 경우 사업자 정보를 직접 입력해 주세요.\n\n동의하고 올리시겠습니까?';
+async function upBiz(input){
+  var f=input.files&&input.files[0]; input.value=''; if(!f) return;
+  if (!confirm(BIZ_CONSENT)) return;
+  if (f.size>10485760) return toast('10MB 를 넘는 파일은 올릴 수 없습니다.');
+  var ext=((f.name.match(/\.([A-Za-z0-9]{1,6})$/)||['',''])[1]||'').toLowerCase();
+  var type=f.type||({pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[ext]||'');
+  if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(type)) return alert('JPG·PNG 사진 또는 PDF 사업자등록증을 올려 주세요.');
+  var path=S.user.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+(ext?'.'+ext:'');
+  toast('올리는 중…');
+  var up=await sb.storage.from('crew-docs').upload(path, f, { contentType:type, upsert:false });
+  if (up.error) return toast('올리지 못했습니다: '+errText(up.error));
+  var r=await sb.from('crew_member_docs').insert({ user_id:S.user.id, kind:'biz', title:f.name, storage_path:path, size_bytes:f.size });
+  if (r.error){ await sb.storage.from('crew-docs').remove([path]); return toast('올리지 못했습니다: '+errText(r.error)); }
+  loadDocs(); toast('제출했습니다. 글자를 읽는 중… (처음엔 10초쯤 걸릴 수 있습니다)');
+  var b; try{ b=parseBizCert((await certLines(f, function(t){ return /\d{3}\s*-\s*\d{2}\s*-\s*\d{5}/.test(t); })).join('\n')); }catch(e){ b={}; }
+  var set=function(id, v){ if (v) $(id).value=v; }, n=0;   // 못 읽은 칸은 기존 값 유지
+  [['pBizName',b.name],['pBizNo',b.no],['pBizCeo',b.ceo],['pBizAddr',b.addr],['pBizType',b.type],['pBizItem',b.item]].forEach(function(x){ if (x[1]){ set(x[0], x[1]); n++; } });
+  document.querySelectorAll('input[name=pBiz]').forEach(function(x){ x.checked = x.value==='1'; }); bizToggle();
+  if (n) msg('bizMsg', '사업자등록증에서 '+n+'개 칸을 읽었습니다. 읽은 내용을 확인한 뒤 [저장]을 눌러 주세요.', true);
+  else msg('bizMsg', '파일은 제출했지만 글자를 읽지 못했습니다. 사업자 정보를 직접 입력한 뒤 [저장]을 눌러 주세요.');
+}
 async function upDoc(input, kind){
   if (kind==='safety') return upCert(input, null);
+  if (kind==='biz') return upBiz(input);
   // 신분증·통장 사본은 민감한 서류 — 올리기 전에 수집·이용 동의를 명시적으로 받는다 (개인정보보호법 22조)
   if (kind==='id' || kind==='bank'){
-    if (!confirm('신분증·통장 사본은 원천징수 신고와 정산 목적으로만 수집합니다 (제출일로부터 1년 후 자동 파기·탈퇴 시 즉시, 본인과 관리자만 열람).\n신분증은 주민등록번호 뒷자리를 가려서 올려 주세요.\n\n수집·이용에 동의하고 업로드할까요?')){ input.value=''; return; }
+    if (!confirm('신분증·통장 사본은 원천징수 신고와 정산 목적으로만 수집합니다 (제출일로부터 1년 후 자동 파기·탈퇴 시 즉시, 본인과 관리자만 열람).\n\n수집·이용에 동의하고 업로드할까요?')){ input.value=''; return; }
   }
   var f=input.files&&input.files[0]; input.value=''; if(!f) return;
   if (f.size>10485760) return toast('10MB 를 넘는 파일은 올릴 수 없습니다.');
@@ -861,6 +927,7 @@ function fillProfile(){
   $('pName').value=m.name||meta.name||ln||''; $('pPhone').value=fmtPhone(m.phone)||m.phone||''; $('pSpec').value=m.specialty||''; $('pCareer').value=m.career||'';
   document.querySelectorAll('input[name=pBiz]').forEach(function(x){ x.checked = (x.value==='1') === !!m.is_business; });
   $('pBizName').value=m.biz_name||''; $('pBizNo').value=fmtBizNo(m.biz_no)||m.biz_no||'';
+  $('pBizCeo').value=m.biz_ceo||''; $('pBizAddr').value=m.biz_addr||''; $('pBizType').value=m.biz_type||''; $('pBizItem').value=m.biz_item||''; $('pTaxEmail').value=m.tax_email||'';
   $('pNotify').checked = m.notify_email!==false;
   $('pBank').value=m.bank_name||''; $('pAcct').value=m.bank_account||''; $('pHolder').value=m.bank_holder||'';
   $('profBtn').textContent = S.member ? '저장' : '등록하고 시작하기';
@@ -892,14 +959,18 @@ async function delRrn(){
   var r=await sb.rpc('crew_delete_rrn'); if (r.error) return msg('rrnMsg', errText(r.error));
   msg('rrnMsg','삭제했습니다.',true); loadRrn();
 }
-function bizToggle(){ var b=document.querySelector('input[name=pBiz]:checked').value==='1'; $('bizRow').style.display=b?'':'none'; }
+function isBizSel(){ var x=document.querySelector('input[name=pBiz]:checked'); return !!x && x.value==='1'; }
+function bizToggle(){ var b=isBizSel(); $('bizRow').style.display=b?'':'none'; if (S.member && $('docsList')) renderDocs(); }
 async function saveProfile(ev){
   ev.preventDefault(); clearMsg('profMsg');
   var biz=document.querySelector('input[name=pBiz]:checked').value==='1';
   var row={ name:$('pName').value.trim(), phone:$('pPhone').value.trim(), specialty:$('pSpec').value.trim()||null, career:$('pCareer').value.trim()||null,
             is_business:biz, biz_name:biz?($('pBizName').value.trim()||null):null, biz_no:biz?($('pBizNo').value.trim()||null):null,
+            biz_ceo:biz?($('pBizCeo').value.trim()||null):null, biz_addr:biz?($('pBizAddr').value.trim()||null):null, biz_type:biz?($('pBizType').value.trim()||null):null,
+            biz_item:biz?($('pBizItem').value.trim()||null):null, tax_email:biz?($('pTaxEmail').value.trim()||null):null,
             bank_name:$('pBank').value.trim()||null, bank_account:$('pAcct').value.trim()||null, bank_holder:$('pHolder').value.trim()||null, notify_email:$('pNotify').checked };
   if (biz && row.biz_no && !/^\d{3}-?\d{2}-?\d{5}$/.test(row.biz_no)) return msg('profMsg','사업자등록번호는 숫자 10자리입니다 (000-00-00000).');
+  if (biz && row.tax_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.tax_email)) return msg('profMsg','세금계산서 이메일 형식이 맞지 않습니다 (예: tax@example.com).');
   if (!S.member) return views('join');
   var r=await sb.from('crew_members').update(row).eq('user_id', S.user.id);
   if (r.error) return msg('profMsg', errText(r.error));
