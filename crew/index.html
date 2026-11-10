@@ -803,7 +803,7 @@ function certGate(p){
 function bizLab(s){ return s.split('').map(function(ch){ return ch==='('||ch===')'?'\\'+ch:ch; }).join('\\s*'); }
 var BIZ_LABS=[['name',['상호(법인명)','법인명(단체명)','상호','법인명']],['ceo',['성명(대표자)','대표자','성명']],['addr',['사업장소재지','사업장주소']],['type',['업태']],['item',['종목']],
   [null,['생년월일','개업연월일','법인등록번호','주민등록번호','본점소재지','사업의종류','발급사유','공동사업자']]];
-function bizVal(v){ var t=String(v||'').replace(/^[\s:：.\-·]+/,'').replace(/[\s:：.,·|]+$/,'').split(/\s+/), o=[], one=false;
+function bizVal(v){ var t=String(v||'').replace(/^[\s:：.\-·_|]+/,'').replace(/[\s:：.,·|_]+$/,'').split(/\s+/).filter(function(w){ return !/^[_|·.,:：\-]+$/.test(w); }).map(function(w){ return w.replace(/^[_|]+|[_|]+$/g,''); }), o=[], one=false;   // 판독 잡음(_ |) 제거
   t.forEach(function(w){ var s1=/^[가-힣]$/.test(w); if (s1 && one) o[o.length-1]+=w; else if (w) o.push(w); one=s1; });   // '경 기 도' → '경기도'
   return o.join(' '); }
 function parseBizCert(text){
